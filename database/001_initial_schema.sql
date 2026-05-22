@@ -250,7 +250,7 @@ CREATE TABLE imports (
 CREATE TABLE import_rows (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     import_id BIGINT UNSIGNED NOT NULL,
-    row_number INT UNSIGNED NOT NULL,
+    source_row_number INT UNSIGNED NOT NULL,
     status VARCHAR(30) NOT NULL DEFAULT 'pending',
     entity_id BIGINT UNSIGNED NULL,
     raw_data JSON NOT NULL,
@@ -259,7 +259,7 @@ CREATE TABLE import_rows (
     errors JSON NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY uq_import_rows_import_row (import_id, row_number),
+    UNIQUE KEY uq_import_rows_import_row (import_id, source_row_number),
     KEY idx_import_rows_status (status),
     KEY idx_import_rows_entity (entity_id),
     CONSTRAINT fk_import_rows_import FOREIGN KEY (import_id) REFERENCES imports (id) ON DELETE CASCADE,
@@ -281,4 +281,3 @@ CREATE TABLE audit_logs (
     KEY idx_audit_action (action),
     CONSTRAINT fk_audit_logs_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-

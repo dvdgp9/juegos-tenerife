@@ -265,12 +265,12 @@ final class EntityImportService
     private function recordImportRow(PDO $pdo, int $importId, int $rowNumber, string $status, array $rawData, array $warnings, array $errors, ?int $entityId): void
     {
         $statement = $pdo->prepare(
-            'INSERT INTO import_rows (import_id, row_number, status, entity_id, raw_data, warnings, errors)
-             VALUES (:import_id, :row_number, :status, :entity_id, :raw_data, :warnings, :errors)'
+            'INSERT INTO import_rows (import_id, source_row_number, status, entity_id, raw_data, warnings, errors)
+             VALUES (:import_id, :source_row_number, :status, :entity_id, :raw_data, :warnings, :errors)'
         );
         $statement->execute([
             'import_id' => $importId,
-            'row_number' => $rowNumber,
+            'source_row_number' => $rowNumber,
             'status' => $status === 'created' || $status === 'updated' || $status === 'skipped' ? $status : 'error',
             'entity_id' => $entityId,
             'raw_data' => json_encode($rawData, JSON_UNESCAPED_UNICODE),
@@ -595,4 +595,3 @@ final class EntityImportService
         return 'unknown';
     }
 }
-

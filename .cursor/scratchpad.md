@@ -164,6 +164,7 @@ Success criteria:
 - [x] Implementar confirmación de importación a base de datos.
 - [x] Implementar listado admin de entidades importadas.
 - [ ] Probar login e importación completa contra MySQL/MariaDB real.
+- [x] Corregir incompatibilidad SQL en MariaDB por nombre reservado en `import_rows`.
 
 ## Current Status / Progress Tracking
 
@@ -274,6 +275,16 @@ Geolocalización Maps:
 - Implementado `GoogleMapsCoordinateExtractor` para intentar expandir enlaces y parsear coordenadas.
 - En este sandbox PHP/cURL no pudo resolver DNS de `maps.app.goo.gl`; en Plesk habrá que confirmar salida HTTPS desde PHP.
 
+Corrección despliegue MariaDB (Plesk):
+
+- Error reportado en migración `001` por `row_number` en `import_rows` (parser de MariaDB lo trata como identificador problemático según configuración/versión).
+- Se renombró la columna a `source_row_number` en:
+  - `database/001_initial_schema.sql`
+  - `database/schema-draft.sql`
+  - `app/Services/Import/EntityImportService.php`
+- Se añadió `database/004_fix_import_rows_reserved_name.sql` para entornos donde `001` quedó a medias: recrea `import_rows` con el nombre corregido y constraints correctas.
+- Verificación local: `php -l app/Services/Import/EntityImportService.php` sin errores.
+
 ## Executor's Feedback or Assistance Requests
 
 Tareas 1 a 4 implementadas y verificadas técnicamente por Executor. Pendiente de revisión visual/manual del usuario cuando quiera.
@@ -313,3 +324,4 @@ Antes de ejecutar implementación, el Executor debe:
 - Los protocolos no deben modelarse como booleanos puros porque existen estados intermedios como `En proceso`.
 - Si aparece un aviso de seguridad en Composer, ejecutar `composer audit` y no continuar con una dependencia vulnerable si existe alternativa razonable.
 - Para enlaces cortos de Google Maps, `curl -L` puede revelar coordenadas en la URL final si el enlace apunta a una búsqueda/coordenada. Si falla desde PHP, dejar `geocoding_status = pending` y completar manualmente en admin.
+- En MariaDB/Plesk, evitar columnas con nombres ambiguos o potencialmente reservados en migraciones iniciales; usar nombres explícitos como `source_row_number` para tablas de staging/import.
