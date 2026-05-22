@@ -19,10 +19,10 @@ final class AuthService
         $statement = $pdo->prepare(
             'SELECT id, role, username, email, password_hash, full_name
              FROM users
-             WHERE is_active = 1 AND (email = :identifier OR username = :identifier)
+             WHERE is_active = 1 AND (email = :email OR username = :username)
              LIMIT 1'
         );
-        $statement->execute(['identifier' => $identifier]);
+        $statement->execute(['email' => $identifier, 'username' => $identifier]);
         $user = $statement->fetch(PDO::FETCH_ASSOC);
 
         if (!is_array($user) || !password_verify($password, (string) $user['password_hash'])) {
