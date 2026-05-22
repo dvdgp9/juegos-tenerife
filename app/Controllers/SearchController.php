@@ -29,28 +29,18 @@ final class SearchController
         $entityTypes = [];
         $dbError = null;
 
+        $mapPoints = [];
         try {
-            $results = (new EntityRepository())->search($filters);
+            $repo = new EntityRepository();
+            $results = $repo->search($filters);
             $modalities = (new ModalityRepository())->all();
             $municipalities = (new MunicipalityRepository())->filterable();
             $entityTypes = (new EntityTypeRepository())->all();
+
+            $entityIds = array_map(static fn($r) => (int) $r['id'], $results);
+            $mapPoints = $repo->facilityMapPointsForEntities($entityIds);
         } catch (RuntimeException $exception) {
             $dbError = $exception->getMessage();
-        }
-
-        $mapPoints = [];
-        foreach ($results as $row) {
-            if ($row['latitude'] === null || $row['longitude'] === null) {
-                continue;
-            }
-            $mapPoints[] = [
-                'title' => $row['name'],
-                'municipality' => $row['municipality'] ?? '',
-                'modalities' => $row['modalities'] ?? '',
-                'lat' => (float) $row['latitude'],
-                'lng' => (float) $row['longitude'],
-                'url' => '/entidades/' . $row['slug'],
-            ];
         }
 
         return View::render('search-results', [

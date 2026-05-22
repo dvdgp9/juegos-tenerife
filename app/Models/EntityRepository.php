@@ -133,6 +133,53 @@ final class EntityRepository
     }
 
     /**
+     * Map points (one per geocoded facility) for a given list of entity IDs.
+     *
+     * @param list<int> $entityIds
+     * @return list<array{title: string, municipality: string, modalities: string, lat: float, lng: float, url: string}>
+     */
+    public function facilityMapPointsForEntities(array $entityIds): array
+    {
+        if ($entityIds === []) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($entityIds), '?'));
+        $pdo = Database::connection();
+        $statement = $pdo->prepare(
+            'SELECT e.id AS entity_id, e.name AS entity_name, e.slug AS entity_slug,
+                    f.name AS facility_name, f.locality AS facility_locality,
+                    f.latitude, f.longitude,
+                    m.name AS municipality
+             FROM entity_facilities ef
+             INNER JOIN entities e ON e.id = ef.entity_id
+             INNER JOIN facilities f ON f.id = ef.facility_id
+             LEFT JOIN municipalities m ON m.id = f.municipality_id
+             WHERE ef.entity_id IN (' . $placeholders . ')
+               AND f.latitude IS NOT NULL
+               AND f.longitude IS NOT NULL
+               AND f.deleted_at IS NULL
+               AND e.deleted_at IS NULL
+             ORDER BY e.name ASC, ef.sort_order ASC'
+        );
+        $statement->execute($entityIds);
+
+        $points = [];
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $points[] = [
+                'title' => $row['entity_name'] . ' — ' . $row['facility_name'],
+                'municipality' => (string) ($row['municipality'] ?? $row['facility_locality'] ?? ''),
+                'modalities' => '',
+                'lat' => (float) $row['latitude'],
+                'lng' => (float) $row['longitude'],
+                'url' => '/entidades/' . $row['entity_slug'],
+            ];
+        }
+
+        return $points;
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     public function findBySlug(string $slug): ?array

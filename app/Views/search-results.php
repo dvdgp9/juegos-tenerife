@@ -154,7 +154,7 @@ foreach ($modalities as $m) {
                 </div>
                 <div class="map-legend">
                     <strong>Ubicaciones</strong>
-                    <span><?= count($mapPoints) ?> con coordenadas</span>
+                    <span><?= count($mapPoints) ?> instalación<?= count($mapPoints) === 1 ? '' : 'es' ?> en el mapa</span>
                 </div>
             </div>
         </section>
