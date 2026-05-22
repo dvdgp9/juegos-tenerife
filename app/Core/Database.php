@@ -34,13 +34,15 @@ final class Database
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]);
         } catch (PDOException $exception) {
-            $debug = ($_ENV['APP_DEBUG'] ?? 'false') === 'true';
-            $message = 'No se pudo conectar con la base de datos.';
-            if ($debug) {
-                $message .= ' [debug] ' . $exception->getMessage()
-                    . ' (host=' . $config['host'] . ', port=' . $config['port']
-                    . ', db=' . $config['database'] . ', user=' . $config['username'] . ')';
-            }
+            $envLoaded = isset($_ENV['DB_DATABASE']) ? 'yes' : 'no';
+            $message = 'No se pudo conectar con la base de datos. [diag] '
+                . $exception->getMessage()
+                . ' | host=' . $config['host']
+                . ' port=' . $config['port']
+                . ' db=' . $config['database']
+                . ' user=' . $config['username']
+                . ' pwd_len=' . strlen((string) $config['password'])
+                . ' env_loaded=' . $envLoaded;
             throw new RuntimeException($message, 0, $exception);
         }
 
