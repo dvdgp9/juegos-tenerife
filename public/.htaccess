@@ -1,0 +1,19 @@
+# Front controller routing — todas las peticiones que no sean a un archivo
+# o directorio real se redirigen a index.php para que el Router las despache.
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Si el path coincide con un archivo real, servirlo directamente.
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Resto → index.php
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+# Bloquear acceso directo a .env y similares por si acaso.
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
