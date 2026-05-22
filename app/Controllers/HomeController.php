@@ -22,11 +22,19 @@ final class HomeController
         $featuredEntities = [];
         $dbError = null;
 
+        $mapPoints = [];
         try {
             $modalities = (new ModalityRepository())->featured();
             $municipalities = (new MunicipalityRepository())->filterable();
             $entityTypes = (new EntityTypeRepository())->all();
-            $featuredEntities = (new EntityRepository())->featuredByModality();
+            $entityRepo = new EntityRepository();
+            $featuredEntities = $entityRepo->featuredByModality();
+
+            $entityIds = array_map(
+                static fn($featured) => (int) $featured['entity']['id'],
+                $featuredEntities
+            );
+            $mapPoints = $entityRepo->facilityMapPointsForEntities($entityIds);
         } catch (RuntimeException $exception) {
             $dbError = $exception->getMessage();
         }
@@ -37,6 +45,7 @@ final class HomeController
             'municipalities' => $municipalities,
             'entityTypes' => $entityTypes,
             'featuredEntities' => $featuredEntities,
+            'mapPoints' => $mapPoints,
             'dbError' => $dbError,
         ]);
     }

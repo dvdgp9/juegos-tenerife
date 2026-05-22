@@ -3,11 +3,13 @@
 /** @var list<array<string,mixed>> $municipalities */
 /** @var list<array<string,mixed>> $entityTypes */
 /** @var list<array{modality: array<string,mixed>, entity: array<string,mixed>}> $featuredEntities */
+/** @var list<array<string,mixed>> $mapPoints */
 /** @var ?string $dbError */
 $modalities = $modalities ?? [];
 $municipalities = $municipalities ?? [];
 $entityTypes = $entityTypes ?? [];
 $featuredEntities = $featuredEntities ?? [];
+$mapPoints = $mapPoints ?? [];
 $dbError = $dbError ?? null;
 ?>
 <!doctype html>
@@ -19,6 +21,7 @@ $dbError = $dbError ?? null;
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
     <link rel="stylesheet" href="/assets/css/styles.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
+    <script>window.__mapPoints = <?= json_encode($mapPoints, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;</script>
     <script src="/assets/js/app.js" defer></script>
 </head>
 <body>
