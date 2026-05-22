@@ -28,6 +28,7 @@ El SQL necesario se entregará en archivos dentro de `database/` para ejecución
 
 Scripts iniciales:
 
+0. `database/000_drop_all_tables_EMPTY_DB_ONLY.sql` solo si una migración falló a medias en una BD vacía.
 1. `database/001_initial_schema.sql`
 2. `database/002_seed_reference_data.sql`
 3. `database/003_seed_superadmin.sql`
