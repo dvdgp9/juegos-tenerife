@@ -1,0 +1,60 @@
+-- Datos iniciales de referencia.
+
+SET NAMES utf8mb4;
+
+INSERT INTO municipalities (name, slug, island, is_tenerife, is_filterable, sort_order) VALUES
+('Adeje', 'adeje', 'Tenerife', 1, 1, 10),
+('Arafo', 'arafo', 'Tenerife', 1, 1, 20),
+('Arico', 'arico', 'Tenerife', 1, 1, 30),
+('Arona', 'arona', 'Tenerife', 1, 1, 40),
+('Buenavista del Norte', 'buenavista-del-norte', 'Tenerife', 1, 1, 50),
+('Candelaria', 'candelaria', 'Tenerife', 1, 1, 60),
+('El Rosario', 'el-rosario', 'Tenerife', 1, 1, 70),
+('El Sauzal', 'el-sauzal', 'Tenerife', 1, 1, 80),
+('El Tanque', 'el-tanque', 'Tenerife', 1, 1, 90),
+('Fasnia', 'fasnia', 'Tenerife', 1, 1, 100),
+('Garachico', 'garachico', 'Tenerife', 1, 1, 110),
+('Granadilla de Abona', 'granadilla-de-abona', 'Tenerife', 1, 1, 120),
+('Guía de Isora', 'guia-de-isora', 'Tenerife', 1, 1, 130),
+('Güímar', 'guimar', 'Tenerife', 1, 1, 140),
+('Icod de los Vinos', 'icod-de-los-vinos', 'Tenerife', 1, 1, 150),
+('La Guancha', 'la-guancha', 'Tenerife', 1, 1, 160),
+('La Matanza de Acentejo', 'la-matanza-de-acentejo', 'Tenerife', 1, 1, 170),
+('La Orotava', 'la-orotava', 'Tenerife', 1, 1, 180),
+('La Victoria de Acentejo', 'la-victoria-de-acentejo', 'Tenerife', 1, 1, 190),
+('Los Realejos', 'los-realejos', 'Tenerife', 1, 1, 200),
+('Los Silos', 'los-silos', 'Tenerife', 1, 1, 210),
+('Puerto de la Cruz', 'puerto-de-la-cruz', 'Tenerife', 1, 1, 220),
+('San Cristóbal de La Laguna', 'san-cristobal-de-la-laguna', 'Tenerife', 1, 1, 230),
+('San Juan de la Rambla', 'san-juan-de-la-rambla', 'Tenerife', 1, 1, 240),
+('San Miguel de Abona', 'san-miguel-de-abona', 'Tenerife', 1, 1, 250),
+('Santa Cruz de Tenerife', 'santa-cruz-de-tenerife', 'Tenerife', 1, 1, 260),
+('Santa Úrsula', 'santa-ursula', 'Tenerife', 1, 1, 270),
+('Santiago del Teide', 'santiago-del-teide', 'Tenerife', 1, 1, 280),
+('Tacoronte', 'tacoronte', 'Tenerife', 1, 1, 290),
+('Tegueste', 'tegueste', 'Tenerife', 1, 1, 300),
+('Vilaflor de Chasna', 'vilaflor-de-chasna', 'Tenerife', 1, 1, 310),
+('Agüimes', 'aguimes', 'Gran Canaria', 0, 0, 900)
+ON DUPLICATE KEY UPDATE name = VALUES(name), island = VALUES(island), is_tenerife = VALUES(is_tenerife), is_filterable = VALUES(is_filterable), sort_order = VALUES(sort_order);
+
+INSERT INTO entity_types (name, slug) VALUES
+('Federación', 'federacion'),
+('Club', 'club'),
+('Colectivo', 'colectivo'),
+('Asociación', 'asociacion')
+ON DUPLICATE KEY UPDATE name = VALUES(name);
+
+INSERT INTO modalities (name, slug, short_description, icon_path, is_featured, sort_order) VALUES
+('Lucha Canaria', 'lucha-canaria', 'Deporte vernáculo de Canarias basado en el desequilibrio del contrario mediante luchas, mañas o técnicas.', '/assets/images/pictogramas/LUCHA_CANARIA_1.png', 1, 10),
+('Juego del Palo', 'juego-del-palo', 'Enfrentamiento lúdico entre dos personas usando bastones de madera bajo reglas pactadas.', '/assets/images/pictogramas/JUEGO_DEL_PALO_1.png', 1, 20),
+('Arrastre Canario', 'arrastre-canario', 'Competición en la que una yunta arrastra una corza cargada en un recorrido de 35 metros.', '/assets/images/pictogramas/ARRASTRE_DE_GANADO_1.png', 1, 30),
+('Salto del Pastor', 'salto-del-pastor', 'Uso de lanza o garrote con regatón para desplazarse por terrenos irregulares y pendientes.', '/assets/images/pictogramas/SALTO_DEL_PASTOR_1.png', 1, 40),
+('Bola Canaria', 'bola-canaria', 'Juego de precisión en el que se lanzan bolas para situarlas lo más cerca posible del boliche.', '/assets/images/pictogramas/BOLA_CANARIA_1.png', 1, 50),
+('Lucha del Garrote', 'lucha-del-garrote', 'Sistema tradicional de combate y defensa personal con bastón grueso o lata.', '/assets/images/pictogramas/JUEGO_DEL_GARROTE_1.png', 1, 60),
+('Levantamiento de Arado', 'levantamiento-de-arado', NULL, NULL, 0, 100),
+('Levantamiento y Pulseo de Piedra', 'levantamiento-y-pulseo-de-piedra', NULL, NULL, 0, 110),
+('Petanca', 'petanca', NULL, NULL, 0, 120),
+('Billarda Canaria', 'billarda-canaria', NULL, NULL, 0, 130),
+('Pina', 'pina', NULL, NULL, 0, 140)
+ON DUPLICATE KEY UPDATE name = VALUES(name), short_description = VALUES(short_description), icon_path = VALUES(icon_path), is_featured = VALUES(is_featured), sort_order = VALUES(sort_order);
+

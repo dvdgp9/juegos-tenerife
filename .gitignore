@@ -1,0 +1,12 @@
+.DS_Store
+/vendor/
+/.env
+/storage/cache/*
+/storage/imports/*
+/storage/logs/*
+/storage/uploads/*
+/database/local/
+!/storage/cache/.gitkeep
+!/storage/imports/.gitkeep
+!/storage/logs/.gitkeep
+!/storage/uploads/.gitkeep

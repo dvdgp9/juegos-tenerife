@@ -1,0 +1,315 @@
+# Censo de Entidades y Colectivos de Deportes y Juegos Motores Tradicionales de Canarias en Tenerife
+
+## Background and Motivation
+
+El objetivo es desarrollar una plataforma web en PHP vanilla y MySQL para publicar y administrar un censo de modalidades, federaciones, entidades/colectivos e instalaciones vinculadas a juegos y deportes tradicionales de Canarias en Tenerife.
+
+La plataforma debe permitir:
+
+- Búsqueda pública de entidades por nombre, municipio, tipo de entidad y modalidades.
+- Visualización de resultados en listado y mapa interactivo.
+- Ficha pública detallada por entidad, con datos de contacto, modalidades, características, mapa, fotos y PDF descargable.
+- Backend para usuarios no técnicos con login, roles `superadmin` y `admin`, CRUD amplio e importación inicial/recurrente desde Excel.
+- Formulario "Actualizar Censo" dirigido a `deportesdetenerife@gmail.com`.
+
+El diseño debe tomar como inspiración la web `instalacionesdeportivastenerife.es` y los mockups aportados, pero adaptándose a una UX institucional, fluida, clara y móvil. Se usará el criterio de `design-taste-frontend`: interfaz sobria, asimétrica donde aporte valor, mapa protagonista, estados claros, buena legibilidad y CSS centralizado en `styles.css`.
+
+El Excel real aún no está disponible. Se puede avanzar en arquitectura, estructura base, modelo de datos preliminar, diseño UX, setup del proyecto y preparación de importador con mapeo configurable, pero no se debe cerrar el esquema definitivo de importación hasta revisar una muestra del Excel.
+
+## Key Challenges and Analysis
+
+- Importación Excel: el Excel será la fuente inicial y puede haber importaciones posteriores. Debe existir una fase de previsualización antes de guardar datos para detectar errores, duplicados, altas y actualizaciones.
+- Modelo de datos: hay campos multivalor como modalidades, instalaciones, teléfonos, emails, redes, fotos y protocolos. Conviene normalizar lo suficiente para permitir CRUD y búsqueda, evitando un modelo rígido que dependa de columnas exactas aún desconocidas.
+- Ubicaciones: inicialmente se espera recibir enlaces cortos de Google Maps, por ejemplo `https://maps.app.goo.gl/5NANy6NfJ8sKJ8yc7`. Es viable usarlos como enlace externo, pero no son ideales como fuente única de coordenadas. Para pintar marcadores en Leaflet necesitamos `lat`/`lng`. Se deberá intentar extraer coordenadas si el enlace se puede expandir o pedir al Excel que incluya coordenadas separadas si es posible. Si solo hay enlaces cortos, el proceso de importación debe marcar filas "pendientes de geolocalización".
+- Mapa: se recomienda Leaflet + OpenStreetMap por coste, flexibilidad, rendimiento y control visual. Debe mostrarse atribución de OpenStreetMap. Para geocodificación masiva no se debe abusar del Nominatim público; si hay muchos registros sin coordenadas, mejor resolver manualmente, pedir coordenadas en Excel o usar un proveedor de geocodificación con condiciones adecuadas.
+- PDF: la ficha descargable puede generarse con Dompdf desde una plantilla específica. No necesita ser idéntica a la ficha web, pero debe ser clara, imprimible y completa.
+- Seguridad: usar PDO con prepared statements, `password_hash` / `password_verify`, sesiones seguras, protección CSRF en formularios admin, validación de uploads, permisos por rol y almacenamiento de contraseñas solo como hash.
+- Datos públicos: por decisión actual, los datos de contacto se mostrarán públicamente para facilitar contacto con las federaciones/entidades.
+- Textos legales: copiar y adaptar desde `deportestenerife.es`.
+- Hosting: se desplegará en Plesk de la empresa. Hay que confirmar en implementación rutas, versión PHP, extensiones necesarias y configuración SMTP/mail.
+
+## High-level Task Breakdown
+
+### 1. Definir arquitectura base del proyecto
+
+Success criteria:
+- Estructura de carpetas propuesta para PHP vanilla documentada.
+- Separación clara entre `public`, `app`, `config`, `database`, `storage` y `assets`.
+- Decisión documentada sobre Composer y dependencias mínimas.
+- Sin tocar base de datos real.
+
+### 2. Diseñar modelo de datos inicial
+
+Success criteria:
+- Esquema preliminar MySQL cubre entidades, modalidades, municipios, instalaciones, contactos, redes, fotos, usuarios, roles, importaciones y auditoría básica.
+- Campos multivalor se resuelven con tablas relacionales o tablas hijas.
+- Se documentan campos pendientes de confirmar por el Excel.
+- No se ejecutan migraciones definitivas hasta revisar muestra del Excel.
+
+### 3. Preparar prototipo visual estático público
+
+Success criteria:
+- Home estática con logo, menú, hero/collage, buscador, texto "Sobre el Censo" y sección de 6 modalidades.
+- Página de resultados estática con listado y espacio de mapa.
+- Ficha de entidad estática basada en el mockup, adaptada a los campos solicitados.
+- Diseño responsive.
+- CSS en `styles.css`, sin estilos inline.
+- Uso de assets locales: logo y pictogramas.
+
+### 4. Preparar frontend interactivo mínimo
+
+Success criteria:
+- Filtros de búsqueda con estados vacío, cargando y sin resultados.
+- Leaflet integrado con datos mock y marcadores.
+- Ficha con bloques laterales plegables.
+- Web/redes se muestran condicionalmente según disponibilidad.
+- Accesibilidad básica: labels, focus visible, navegación por teclado razonable.
+
+### 5. Implementar autenticación y estructura admin
+
+Success criteria:
+- Login con usuario/correo y contraseña.
+- Roles `superadmin` y `admin`.
+- Passwords con `password_hash` y validación con `password_verify`.
+- Protección CSRF en formularios.
+- Dashboard admin básico con navegación.
+
+### 6. Implementar CRUD administrativo inicial
+
+Success criteria:
+- CRUD de entidades.
+- CRUD de modalidades.
+- CRUD de instalaciones.
+- CRUD de usuarios al menos para `superadmin`.
+- Upload seguro de logo/fotos/pictogramas o selección desde assets.
+- Validación server-side y mensajes de error útiles.
+
+### 7. Implementar importador Excel
+
+Success criteria:
+- Carga de `.xlsx`, `.xls` o `.csv` con PhpSpreadsheet.
+- Previsualización antes de guardar.
+- Detección de columnas esperadas y aviso de columnas faltantes.
+- Registro de importación con fecha, usuario, archivo, filas procesadas, errores y resultado.
+- Filas sin coordenadas quedan marcadas para revisión si no se puede extraer ubicación desde Maps.
+
+### 8. Implementar buscador público real
+
+Success criteria:
+- Búsqueda por texto libre en nombre y campos relevantes.
+- Filtros por municipio, tipo de entidad y modalidad.
+- Resultados paginados o limitados con UX clara.
+- Filtros sincronizados con mapa.
+- URLs compartibles con query string.
+
+### 9. Implementar ficha pública real
+
+Success criteria:
+- Ficha renderiza datos reales.
+- Logo de entidad o pictograma fallback.
+- Datos de contacto visibles.
+- Web/redes condicionales.
+- Bloques "Información General", "Deportes y Modalidades Lúdicas", "Características", mapa y fotos.
+- Bloques laterales plegables para contacto, información complementaria y PDF.
+
+### 10. Implementar PDF de entidad
+
+Success criteria:
+- Botón descarga PDF desde ficha.
+- PDF incluye todos los datos relevantes.
+- Plantilla visual clara, imprimible y con logo.
+- Maneja campos vacíos sin romper layout.
+
+### 11. Implementar formulario "Actualizar Censo"
+
+Success criteria:
+- Formulario público enlazado desde el header.
+- Envía a `deportesdetenerife@gmail.com` mediante SMTP/mail disponible en Plesk.
+- Validación, CSRF, honeypot o protección antispam básica.
+- Mensaje de éxito/error claro.
+
+### 12. Textos legales y footer
+
+Success criteria:
+- Páginas de Aviso Legal, Privacidad y Cookies adaptadas desde `deportestenerife.es`.
+- Footer institucional con enlaces.
+- No se publican textos sin revisión humana final.
+
+### 13. QA, pruebas y preparación despliegue
+
+Success criteria:
+- Pruebas manuales documentadas de flujos principales.
+- Tests básicos para importador, autenticación y consultas críticas donde sea práctico.
+- Revisión responsive en móvil y escritorio.
+- Checklist Plesk: PHP, extensiones, permisos de storage, base de datos, SMTP, backups.
+- `npm audit` solo aplica si se introduce tooling Node; si aparece vulnerabilidad en terminal, ejecutar audit antes de seguir.
+
+## Project Status Board
+
+- [x] Recopilar requisitos iniciales del usuario.
+- [x] Revisar assets locales disponibles.
+- [x] Investigar librerías/API principales.
+- [x] Crear documentación inicial de investigación.
+- [x] Crear plan inicial en scratchpad.
+- [x] Esperar confirmación del usuario para ejecutar la tarea 1.
+- [x] Validar manualmente la tarea 1: arquitectura base del proyecto.
+- [x] Ejecutar tarea 2: modelo de datos inicial.
+- [x] Ejecutar tarea 3: prototipo visual estático público.
+- [x] Ejecutar tarea 4: frontend interactivo mínimo con filtros mock y mapa.
+- [x] Inicializar repositorio git local y configurar remoto origin.
+- [x] Revisar Excel real o muestra cuando esté disponible.
+- [x] Definir esquema de datos inicial tras revisar Excel.
+- [x] Implementar autenticación/admin privado base.
+- [x] Implementar previsualización de importación Excel.
+- [x] Implementar confirmación de importación a base de datos.
+- [x] Implementar listado admin de entidades importadas.
+- [ ] Probar login e importación completa contra MySQL/MariaDB real.
+
+## Current Status / Progress Tracking
+
+Executor activo. El usuario autorizó avanzar y evaluar continuamente.
+
+Tarea 1 completada: se creó la arquitectura base PHP vanilla:
+
+- `public/index.php` como front controller.
+- `routes/web.php` con ruta home inicial.
+- `app/Core/` con `Application`, `Router`, `Response` y `View`.
+- `app/Controllers/HomeController.php`.
+- `app/Views/home.php`.
+- `public/assets/css/styles.css`.
+- `config/app.php` y `config/database.php`.
+- `composer.json`, `.env.example`, `.gitignore`, `README.md`.
+- Carpetas `database/`, `storage/`, `docs/` y documentación de Plesk.
+
+Verificación ejecutada:
+
+- `composer install` generó autoload correctamente sin dependencias externas.
+- `php -S 127.0.0.1:8767 -t public` levantó servidor local porque `8766` estaba ocupado.
+- `curl -s http://127.0.0.1:8767/` devolvió la home.
+- `curl -s -I http://127.0.0.1:8767/` devuelve `HTTP/1.1 200 OK`.
+- `php -l public/index.php`, `php -l app/Core/Router.php` y `php -l app/Core/Application.php` sin errores.
+
+Tarea 2 completada: se diseñó el modelo de datos inicial.
+
+- `docs/data-model.md` documenta el modelo y campos pendientes de confirmar con Excel.
+- `database/schema-draft.sql` contiene un borrador MySQL con 14 tablas: usuarios, municipios, tipos, modalidades, entidades, relaciones, contactos, redes, instalaciones, medios, importaciones y auditoría.
+- `database/seed-reference-draft.sql` contiene seed preliminar de 31 municipios y 6 modalidades principales.
+- No se ejecutó SQL.
+- Verificación: extracción de `CREATE TABLE` confirmó 14 tablas en el borrador.
+
+Tarea 3 completada: se montó prototipo visual público.
+
+- Home en `/` con logo, menú, llamada "Actualizar Censo", hero/collage, búsqueda, bloque sobre el censo y modalidades.
+- Resultados en `/busqueda` con filtros, listado mock y mapa.
+- Ficha en `/entidades/federacion-arrastre-canario` con estructura solicitada: cabecera con pictograma, datos de contacto, información general, modalidades, características, mapa, fotos y bloques laterales plegables.
+- Assets copiados a `public/assets/images/`.
+- CSS centralizado en `public/assets/css/styles.css`.
+
+Tarea 4 completada en versión mock/progresiva.
+
+- `public/assets/js/app.js` añade filtros client-side en resultados, estado de carga breve y estado vacío.
+- Leaflet 1.9.4 integrado desde CDN oficial estable, con fallback visual si no carga.
+- Mapa mock con marcadores para home/resultados/ficha.
+- Verificación con navegador integrado: sin imágenes rotas, sin overflow horizontal en desktop ni móvil, filtros reducen resultados y estado vacío aparece correctamente.
+
+Git:
+
+- Se inicializó repositorio local.
+- Se configuró `origin` como `https://github.com/dvdgp9/juegos-tenerife.git`.
+- No se hizo commit ni push.
+
+Excel de prueba revisado:
+
+- Archivo: `/Users/dvdgp/Downloads/Plataforma Juegos Tenerife/Listado Entidades Prueba 20260522.xlsx`.
+- Hoja: `ENTIDADES`.
+- 11 registros reales de prueba, 68 columnas.
+- Documentación añadida en `docs/excel-field-mapping.md`.
+- Ajustes aplicados al SQL borrador:
+  - `Modalidad4` cubierta por relación `entity_modalities`.
+  - Municipios permiten marcar `is_tenerife` e `is_filterable` porque aparece `Agüimes`.
+  - Protocolos Igualdad/Violencia/LOPIVI pasan de booleanos a estado (`Sí, propio`, `En proceso`, `No`, etc.).
+  - Socios se guardan como texto porque hay valores como `291 en activo`.
+  - Añadida tabla `entity_age_ranges` para tramos de edad del Excel.
+- El botón público pasó de `Actualizar Censo` a `Comunicar actualización` para evitar que parezca acceso administrativo.
+- Verificación: SQL borrador contiene 15 tablas; vistas PHP sin errores; CTA sin overflow en móvil/escritorio.
+
+Admin privado:
+
+- Ruta privada prevista: `/admin/login`.
+- No hay enlace visible al admin desde la web pública.
+- Implementados login, logout, sesión, CSRF y dashboard privado.
+- Usuario superadmin inicial preparado en `database/003_seed_superadmin.sql` con hash, sin contraseña en claro.
+- `/admin` y `/admin/import` redirigen a `/admin/login` si no hay sesión.
+- No se pudo probar login real porque no hay base de datos local configurada todavía.
+
+SQL inicial:
+
+- `database/001_initial_schema.sql`
+- `database/002_seed_reference_data.sql`
+- `database/003_seed_superadmin.sql`
+
+Importador Excel:
+
+- Se instaló temporalmente PhpSpreadsheet, pero `composer audit` reportó vulnerabilidades críticas/altas vigentes.
+- Se eliminó PhpSpreadsheet.
+- Se instaló `openspout/openspout` v5.7.0.
+- `composer audit` tras OpenSpout: sin vulnerabilidades.
+- Implementado `ExcelPreviewService` con OpenSpout.
+- Implementada pantalla `/admin/import` y POST `/admin/import/preview`.
+- El servicio previsualiza correctamente el Excel real: hoja `ENTIDADES`, 11 registros, 68 columnas, 11 enlaces Maps, modalidades y municipios detectados.
+
+Confirmación de importación:
+
+- Implementado `EntityImportService`.
+- La confirmación crea registro en `imports`, procesa filas, upserta entidades, tipos, municipios, modalidades, contactos, redes, instalaciones, tramos de edad y registra `import_rows`.
+- La pantalla `/admin/import` ahora muestra botón de confirmación después de previsualizar.
+- La ruta `POST /admin/import/confirm` exige sesión y CSRF.
+- Sin servidor MySQL local activo: `mysqladmin ping -uroot` no pudo conectar a `/tmp/mysql.sock`. Queda pendiente prueba de integración real.
+- MariaDB local existe, pero `root` devuelve `Access denied`, así que no se pudo crear una BD local de prueba sin credenciales.
+- Implementado listado admin `/admin/entities` para revisar entidades importadas; exige sesión y redirige a login si no hay sesión.
+
+Geolocalización Maps:
+
+- Prueba shell `curl -L` con `https://maps.app.goo.gl/5NANy6NfJ8sKJ8yc7` resolvió a una URL con coordenadas `28.438214, -16.456722`.
+- Implementado `GoogleMapsCoordinateExtractor` para intentar expandir enlaces y parsear coordenadas.
+- En este sandbox PHP/cURL no pudo resolver DNS de `maps.app.goo.gl`; en Plesk habrá que confirmar salida HTTPS desde PHP.
+
+## Executor's Feedback or Assistance Requests
+
+Tareas 1 a 4 implementadas y verificadas técnicamente por Executor. Pendiente de revisión visual/manual del usuario cuando quiera.
+
+Notas:
+
+- Repositorio remoto configurado: `https://github.com/dvdgp9/juegos-tenerife.git`.
+- No se ejecutó SQL ni se creó esquema de base de datos real.
+- El SQL creado es un borrador en `database/schema-draft.sql` y `database/seed-reference-draft.sql`; no ejecutarlo todavía en producción.
+- El Excel no trae latitud/longitud ni logos/fotos. Trae enlaces cortos de Google Maps dentro de instalaciones.
+- La dependencia de Excel será OpenSpout, no PhpSpreadsheet, por los avisos de seguridad detectados.
+- La importación confirmada ya está codificada, pero falta probarla con MySQL/MariaDB real.
+- El listado admin de entidades está codificado, pero falta probarlo con datos reales tras ejecutar SQL/importar.
+
+Antes de ejecutar implementación, el Executor debe:
+
+- Confirmar que empieza por una sola tarea del Project Status Board.
+- No tocar base de datos real sin confirmación.
+- No usar `-force` en git sin pedir permiso.
+- Mantener CSS en `styles.css`.
+- Leer archivos antes de editarlos.
+- Documentar errores y soluciones en "Lessons".
+
+## Lessons
+
+- Incluir información útil de depuración en la salida del programa.
+- Leer el archivo antes de editarlo.
+- Si aparecen vulnerabilidades en terminal, ejecutar `npm audit` antes de proceder.
+- Preguntar siempre antes de usar comandos git con `-force`.
+- Poner siempre CSS en `styles.css`, no inline.
+- Para este proyecto, los datos de contacto se muestran públicamente porque la finalidad es facilitar contacto con las entidades/federaciones.
+- Los enlaces cortos de Google Maps son útiles como enlace externo, pero para pintar un mapa propio se necesitan coordenadas `lat`/`lng`; el importador debe detectar y marcar ubicaciones pendientes si no puede extraerlas.
+- Leaflet estable actual revisado el 2026-05-22: 1.9.4. Existe una 2.0 alpha, pero para producción se usará la estable.
+- En Plesk, el document root debe apuntar a `public/`.
+- El Excel real de prueba contiene cabeceras duplicadas `Teléfono1` y `Teléfono2`; el importador debe mapear por posición/grupo, no solo por nombre de columna.
+- `Agüimes` aparece en la muestra; el modelo debe permitir municipios fuera de Tenerife aunque el filtro público principal muestre solo los 31 municipios de Tenerife.
+- Los protocolos no deben modelarse como booleanos puros porque existen estados intermedios como `En proceso`.
+- Si aparece un aviso de seguridad en Composer, ejecutar `composer audit` y no continuar con una dependencia vulnerable si existe alternativa razonable.
+- Para enlaces cortos de Google Maps, `curl -L` puede revelar coordenadas en la URL final si el enlace apunta a una búsqueda/coordenada. Si falla desde PHP, dejar `geocoding_status = pending` y completar manualmente en admin.
