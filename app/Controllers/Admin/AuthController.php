@@ -40,8 +40,8 @@ final class AuthController
 
         try {
             $user = (new AuthService())->attempt($identifier, $password);
-        } catch (RuntimeException) {
-            return $this->loginWithError('No se pudo conectar con la base de datos. Revisa la configuración.');
+        } catch (RuntimeException $exception) {
+            return $this->loginWithError($exception->getMessage());
         }
 
         if ($user === null) {
