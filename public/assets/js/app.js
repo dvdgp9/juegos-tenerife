@@ -18,17 +18,16 @@
         }
 
         var points = Array.isArray(window.__mapPoints) ? window.__mapPoints : [];
+        var TENERIFE_CENTER = [28.2916, -16.6291];
 
         document.querySelectorAll('[data-map]').forEach(function (node) {
             var mode = node.getAttribute('data-map');
-            if (points.length === 0) {
-                return;
-            }
+            var defaultZoom = mode === 'entity' ? 12 : 10;
 
             var map = window.L.map(node, {
                 scrollWheelZoom: false,
                 zoomControl: true
-            }).setView([28.39, -16.55], mode === 'entity' ? 13 : 9);
+            }).setView(TENERIFE_CENTER, defaultZoom);
 
             window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
