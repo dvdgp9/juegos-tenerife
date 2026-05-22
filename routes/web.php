@@ -12,7 +12,7 @@ use JuegosTenerife\Controllers\Admin\ImportController;
 
 $router->get('/', [HomeController::class, 'index']);
 $router->get('/busqueda', [SearchController::class, 'index']);
-$router->get('/entidades/federacion-arrastre-canario', [EntityController::class, 'show']);
+$router->get('/entidades/{slug}', [EntityController::class, 'show']);
 $router->get('/admin/login', [AuthController::class, 'login']);
 $router->post('/admin/login', [AuthController::class, 'authenticate']);
 $router->post('/admin/logout', [AuthController::class, 'logout']);

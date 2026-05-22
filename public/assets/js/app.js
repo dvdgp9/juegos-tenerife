@@ -11,60 +11,47 @@
         }
     };
 
-    var mapPoints = [
-        {
-            title: 'Federación de Arrastre Canario',
-            municipality: 'San Cristóbal de La Laguna',
-            modalities: 'Arrastre Canario',
-            lat: 28.4867,
-            lng: -16.3159,
-            url: '/entidades/federacion-arrastre-canario'
-        },
-        {
-            title: 'Club de Bola Canaria',
-            municipality: 'Santa Cruz de Tenerife',
-            modalities: 'Bola Canaria',
-            lat: 28.4636,
-            lng: -16.2518,
-            url: '#'
-        },
-        {
-            title: 'Colectivo de Salto del Pastor',
-            municipality: 'Tegueste',
-            modalities: 'Salto del Pastor',
-            lat: 28.5231,
-            lng: -16.3362,
-            url: '#'
-        }
-    ];
-
     function initMaps() {
         if (!window.L) {
             document.documentElement.classList.add('leaflet-unavailable');
             return;
         }
 
+        var points = Array.isArray(window.__mapPoints) ? window.__mapPoints : [];
+
         document.querySelectorAll('[data-map]').forEach(function (node) {
             var mode = node.getAttribute('data-map');
-            var points = mode === 'entity' ? mapPoints.slice(0, 1) : mapPoints;
+            if (points.length === 0) {
+                return;
+            }
+
             var map = window.L.map(node, {
                 scrollWheelZoom: false,
                 zoomControl: true
-            }).setView([28.39, -16.55], mode === 'entity' ? 11 : 9);
+            }).setView([28.39, -16.55], mode === 'entity' ? 13 : 9);
 
             window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
                 attribution: '&copy; OpenStreetMap'
             }).addTo(map);
 
+            var bounds = [];
             points.forEach(function (point) {
-                var popup = '<strong>' + point.title + '</strong><br>' + point.municipality + '<br>' + point.modalities;
-                if (point.url !== '#') {
+                var popup = '<strong>' + point.title + '</strong>';
+                if (point.municipality) { popup += '<br>' + point.municipality; }
+                if (point.modalities) { popup += '<br>' + point.modalities; }
+                if (point.url && point.url !== '#') {
                     popup += '<br><a href="' + point.url + '">Ver ficha</a>';
                 }
-
                 window.L.marker([point.lat, point.lng]).addTo(map).bindPopup(popup);
+                bounds.push([point.lat, point.lng]);
             });
+
+            if (bounds.length > 1) {
+                map.fitBounds(bounds, { padding: [30, 30] });
+            } else if (bounds.length === 1) {
+                map.setView(bounds[0], mode === 'entity' ? 14 : 12);
+            }
 
             node.classList.add('leaflet-ready');
         });

@@ -1,15 +1,14 @@
 <?php
-
-$modalities = [
-    ['name' => 'Lucha Canaria', 'icon' => '/assets/images/pictogramas/LUCHA_CANARIA_1.png', 'text' => 'Deporte vernáculo de Canarias basado en la habilidad, la nobleza y el desequilibrio del contrario.'],
-    ['name' => 'Juego del Palo', 'icon' => '/assets/images/pictogramas/JUEGO_DEL_PALO_1.png', 'text' => 'Práctica lúdica de enfrentamiento con bastones de madera y reglas pactadas entre jugadores.'],
-    ['name' => 'Arrastre Canario', 'icon' => '/assets/images/pictogramas/ARRASTRE_DE_GANADO_1.png', 'text' => 'Competición vinculada a las tareas agrícolas tradicionales y a la relación entre guayero y yunta.'],
-    ['name' => 'Salto del Pastor', 'icon' => '/assets/images/pictogramas/SALTO_DEL_PASTOR_1.png', 'text' => 'Uso de lanza o garrote con regatón para desplazarse por la orografía irregular de la isla.'],
-    ['name' => 'Bola Canaria', 'icon' => '/assets/images/pictogramas/BOLA_CANARIA_1.png', 'text' => 'Juego de precisión que busca situar las bolas lo más cerca posible del boliche.'],
-    ['name' => 'Lucha del Garrote', 'icon' => '/assets/images/pictogramas/JUEGO_DEL_GARROTE_1.png', 'text' => 'Sistema tradicional de combate y defensa personal con garrote o lata.'],
-];
-
-$municipalities = ['Adeje', 'Arafo', 'Arico', 'Arona', 'Buenavista del Norte', 'Candelaria', 'El Rosario', 'El Sauzal', 'El Tanque', 'Fasnia', 'Garachico', 'Granadilla de Abona', 'Guía de Isora', 'Güímar', 'Icod de los Vinos', 'La Guancha', 'La Matanza de Acentejo', 'La Orotava', 'La Victoria de Acentejo', 'Los Realejos', 'Los Silos', 'Puerto de la Cruz', 'San Cristóbal de La Laguna', 'San Juan de la Rambla', 'San Miguel de Abona', 'Santa Cruz de Tenerife', 'Santa Úrsula', 'Santiago del Teide', 'Tacoronte', 'Tegueste', 'Vilaflor de Chasna'];
+/** @var list<array<string,mixed>> $modalities */
+/** @var list<array<string,mixed>> $municipalities */
+/** @var list<array<string,mixed>> $entityTypes */
+/** @var list<array{modality: array<string,mixed>, entity: array<string,mixed>}> $featuredEntities */
+/** @var ?string $dbError */
+$modalities = $modalities ?? [];
+$municipalities = $municipalities ?? [];
+$entityTypes = $entityTypes ?? [];
+$featuredEntities = $featuredEntities ?? [];
+$dbError = $dbError ?? null;
 ?>
 <!doctype html>
 <html lang="es">
@@ -45,8 +44,10 @@ $municipalities = ['Adeje', 'Arafo', 'Arico', 'Arona', 'Buenavista del Norte', '
             <div class="hero-collage" aria-label="Modalidades destacadas">
                 <?php foreach ($modalities as $index => $modality): ?>
                     <article class="collage-tile collage-tile-<?= $index + 1 ?>">
-                        <img src="<?= htmlspecialchars($modality['icon'], ENT_QUOTES, 'UTF-8') ?>" alt="">
-                        <span><?= htmlspecialchars($modality['name'], ENT_QUOTES, 'UTF-8') ?></span>
+                        <?php if (!empty($modality['icon_path'])): ?>
+                            <img src="<?= htmlspecialchars((string) $modality['icon_path'], ENT_QUOTES, 'UTF-8') ?>" alt="">
+                        <?php endif; ?>
+                        <span><?= htmlspecialchars((string) $modality['name'], ENT_QUOTES, 'UTF-8') ?></span>
                     </article>
                 <?php endforeach; ?>
             </div>
@@ -67,7 +68,7 @@ $municipalities = ['Adeje', 'Arafo', 'Arico', 'Arona', 'Buenavista del Norte', '
                     <select id="municipio" name="municipio">
                         <option value="">Todos los municipios</option>
                         <?php foreach ($municipalities as $municipality): ?>
-                            <option value="<?= htmlspecialchars($municipality, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($municipality, ENT_QUOTES, 'UTF-8') ?></option>
+                            <option value="<?= htmlspecialchars((string) $municipality['slug'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string) $municipality['name'], ENT_QUOTES, 'UTF-8') ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -75,10 +76,9 @@ $municipalities = ['Adeje', 'Arafo', 'Arico', 'Arona', 'Buenavista del Norte', '
                     <label for="tipo">Tipo de Entidad</label>
                     <select id="tipo" name="tipo">
                         <option value="">Cualquier tipo</option>
-                        <option>Federación</option>
-                        <option>Club</option>
-                        <option>Colectivo</option>
-                        <option>Asociación</option>
+                        <?php foreach ($entityTypes as $type): ?>
+                            <option value="<?= htmlspecialchars((string) $type['slug'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string) $type['name'], ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
                 <div class="field">
@@ -86,7 +86,7 @@ $municipalities = ['Adeje', 'Arafo', 'Arico', 'Arona', 'Buenavista del Norte', '
                     <select id="modalidad" name="modalidad">
                         <option value="">Todas las modalidades</option>
                         <?php foreach ($modalities as $modality): ?>
-                            <option><?= htmlspecialchars($modality['name'], ENT_QUOTES, 'UTF-8') ?></option>
+                            <option value="<?= htmlspecialchars((string) $modality['slug'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string) $modality['name'], ENT_QUOTES, 'UTF-8') ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -97,17 +97,28 @@ $municipalities = ['Adeje', 'Arafo', 'Arico', 'Arona', 'Buenavista del Norte', '
 
         <section class="map-preview">
             <div class="result-stack">
-                <article class="result-card featured">
-                    <p class="result-meta">San Cristóbal de La Laguna</p>
-                    <h3>Federación de Arrastre Canario</h3>
-                    <p>Arrastre Canario · Instalaciones asociadas · Contacto público</p>
-                    <a href="/entidades/federacion-arrastre-canario">Ver ficha</a>
-                </article>
-                <article class="result-card">
-                    <p class="result-meta">Santa Cruz de Tenerife</p>
-                    <h3>Club de Bola Canaria</h3>
-                    <p>Bola Canaria · Datos de ejemplo</p>
-                </article>
+                <?php if ($featuredEntities === []): ?>
+                    <article class="result-card">
+                        <p class="result-meta">Sin entidades destacadas todavía</p>
+                        <h3>Aún no hay entidades publicadas</h3>
+                        <p>Cuando se publiquen entidades del censo aparecerán destacadas aquí.</p>
+                    </article>
+                <?php else: ?>
+                    <?php foreach ($featuredEntities as $index => $featured): ?>
+                        <?php $entity = $featured['entity']; $modality = $featured['modality']; ?>
+                        <article class="result-card<?= $index === 0 ? ' featured' : '' ?>">
+                            <p class="result-meta"><?= htmlspecialchars((string) ($entity['municipality'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
+                            <h3><?= htmlspecialchars((string) $entity['name'], ENT_QUOTES, 'UTF-8') ?></h3>
+                            <p>
+                                <?= htmlspecialchars((string) $modality['name'], ENT_QUOTES, 'UTF-8') ?>
+                                <?php if (!empty($entity['entity_type'])): ?>
+                                    · <?= htmlspecialchars((string) $entity['entity_type'], ENT_QUOTES, 'UTF-8') ?>
+                                <?php endif; ?>
+                            </p>
+                            <a href="/entidades/<?= htmlspecialchars((string) $entity['slug'], ENT_QUOTES, 'UTF-8') ?>">Ver ficha</a>
+                        </article>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </div>
             <div class="map-shell" aria-label="Mapa preliminar" data-map="home">
                 <div class="map-fallback">
@@ -137,15 +148,19 @@ $municipalities = ['Adeje', 'Arafo', 'Arico', 'Arona', 'Buenavista del Norte', '
         <section id="modalidades" class="modalities-section">
             <div class="section-heading">
                 <p class="eyebrow">Deportes y Modalidades</p>
-                <h2>Seis modalidades principales como punto de entrada al censo</h2>
+                <h2>Modalidades principales como punto de entrada al censo</h2>
             </div>
             <div class="modalities-grid">
                 <?php foreach ($modalities as $modality): ?>
                     <article class="modality-card">
-                        <img src="<?= htmlspecialchars($modality['icon'], ENT_QUOTES, 'UTF-8') ?>" alt="">
+                        <?php if (!empty($modality['icon_path'])): ?>
+                            <img src="<?= htmlspecialchars((string) $modality['icon_path'], ENT_QUOTES, 'UTF-8') ?>" alt="">
+                        <?php endif; ?>
                         <div>
-                            <h3><?= htmlspecialchars($modality['name'], ENT_QUOTES, 'UTF-8') ?></h3>
-                            <p><?= htmlspecialchars($modality['text'], ENT_QUOTES, 'UTF-8') ?></p>
+                            <h3><?= htmlspecialchars((string) $modality['name'], ENT_QUOTES, 'UTF-8') ?></h3>
+                            <?php if (!empty($modality['short_description'])): ?>
+                                <p><?= htmlspecialchars((string) $modality['short_description'], ENT_QUOTES, 'UTF-8') ?></p>
+                            <?php endif; ?>
                         </div>
                     </article>
                 <?php endforeach; ?>

@@ -325,3 +325,155 @@ Antes de ejecutar implementación, el Executor debe:
 - Si aparece un aviso de seguridad en Composer, ejecutar `composer audit` y no continuar con una dependencia vulnerable si existe alternativa razonable.
 - Para enlaces cortos de Google Maps, `curl -L` puede revelar coordenadas en la URL final si el enlace apunta a una búsqueda/coordenada. Si falla desde PHP, dejar `geocoding_status = pending` y completar manualmente en admin.
 - En MariaDB/Plesk, evitar columnas con nombres ambiguos o potencialmente reservados en migraciones iniciales; usar nombres explícitos como `source_row_number` para tablas de staging/import.
+
+---
+
+## Planner — Fase: Cablear front público a BDD (2026-05-22)
+
+### Background and Motivation (anexo)
+
+Estado verificado en código: el front público (`HomeController`, `SearchController`, `EntityController`) **no consulta la base de datos**. Las únicas zonas conectadas a BDD son `AuthService`, `Admin\EntityController` (listado admin) y el importador. Como consecuencia, aunque el usuario haya ejecutado las migraciones y la importación en producción, la home pública sigue mostrando datos quemados — entre ellos las dos `result-card` mock en `app/Views/home.php:100-110` que el usuario percibe como "el listado solo muestra dos modalidades".
+
+Objetivo de esta fase: cablear las tres pantallas públicas (home, búsqueda, ficha) a las tablas reales que ya pobló la importación, sin tocar admin ni importador.
+
+### Key Challenges and Analysis (anexo)
+
+1. **No hay capa de modelos.** `app/Models` está vacía. Hay dos opciones razonables:
+   - Crear una clase repositorio por tabla relevante (`EntityRepository`, `ModalityRepository`, `MunicipalityRepository`, `EntityTypeRepository`). Mejor para mantenimiento y testabilidad.
+   - Hacer las queries directamente en los controllers como ya hace `Admin\EntityController`. Más rápido, menos código, pero rompe la separación.
+   - **Propuesta:** repositorios ligeros (PHP simple, sin ORM). Es coherente con el estilo "PHP vanilla" del proyecto, y la query del listado admin ya es lo bastante grande como para no querer duplicarla.
+
+2. **Rutas de ficha.** Hoy hay una ruta fija `GET /entidades/federacion-arrastre-canario` apuntando a un controller con título quemado. El esquema tiene `entities.slug UNIQUE`. Hay que pasar a `GET /entidades/{slug}` y resolver por slug. El `Router` actual habrá que revisarlo: si no soporta parámetros, hay que añadir soporte mínimo (segmento `{slug}` → regex `[a-z0-9-]+`). Riesgo bajo, pero hay que verificar primero qué hace `app/Core/Router.php`.
+
+3. **Filtros de búsqueda.** El form de búsqueda manda `q`, `municipio`, `tipo`, `modalidad` por GET. Decisiones:
+   - `q`: `LIKE '%…%'` sobre `entities.name`. Suficiente para 11–500 registros. Full-text se puede añadir después si hace falta.
+   - `municipio`, `tipo`, `modalidad`: hoy el form manda el **nombre** (string visible). Para no romper URLs compartibles ni el HTML actual, joinear por nombre exacto. Alternativa más limpia: cambiar el form a usar `slug` en `value=""`. Recomiendo **slug en `value=""`** porque es robusto frente a acentos/cambios de nombre, y el render visible sigue siendo el name. Coste: una iteración pequeña en el form.
+
+4. **Home dinámica.** Tres bloques a alimentar:
+   - Hero collage y sección "Modalidades": leer `modalities WHERE is_featured = 1 ORDER BY sort_order, name`. Si la tabla tiene <6 destacadas, completar con las primeras `is_featured = 0` o aceptar mostrar menos — pregunta abierta para el usuario.
+   - Selector de municipios del buscador: `municipalities WHERE is_filterable = 1 ORDER BY sort_order, name`.
+   - Selector de tipos: `entity_types ORDER BY name`. (Hoy hay 4 quemados; mejor reflejar lo que realmente exista en BDD).
+   - `result-stack` (las dos tarjetas que el usuario ve como "el listado"): mostrar últimas N entidades publicadas o entidades destacadas. **Pregunta abierta.** Mientras se decide, propongo "últimas 6 publicadas" (`is_published = 1 AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT 6`).
+
+5. **Búsqueda + mapa.** La vista resultados tiene contenedor Leaflet. Hay que pintar marcadores solo de entidades con `latitude IS NOT NULL AND longitude IS NOT NULL`. El resto se listan pero no aparecen en el mapa, con aviso. Las coordenadas viajan al JS embebidas como JSON.
+
+6. **Sanitización y seguridad.**
+   - Todos los inputs del form pasan por `htmlspecialchars` al re-renderizar valores actuales.
+   - SQL solo con prepared statements. Para `LIKE`, escapar `%` y `_` del input antes de bindear.
+   - Sin cambios de permisos: estas pantallas son públicas, sin sesión.
+
+7. **Paginación.** Para 11–50 entidades no es prioridad. Limitar a `LIMIT 100` por seguridad. Documentar como deuda técnica.
+
+8. **Riesgo de despliegue.** Producción ya está en marcha con datos importados. Estos cambios solo añaden SELECTs, no modifican esquema ni escriben datos. Riesgo bajo. Sugiero validar en local contra una BD de prueba antes de subir, pero como no hay BD local ahora mismo (ver "Current Status"), una alternativa es hacer un release pequeño y verificar in situ inmediatamente.
+
+### Preguntas abiertas para el usuario (responder antes de Executor)
+
+- **P1 — Result-stack de la home:** ¿qué entidades listar? Opciones:
+  - (a) Últimas N entidades publicadas (`ORDER BY updated_at DESC LIMIT 6`).
+  - (b) Una entidad por modalidad destacada (representativa).
+  - (c) Marcar manualmente "entidades destacadas" en admin (requiere añadir columna `is_featured` a `entities`, fuera del scope).
+  - *Sugerencia: (a) para esta fase, (c) más adelante si se quiere comisariar.*
+
+- **P2 — Modalidades destacadas:** ¿se quedan las 6 actuales (Lucha Canaria, Juego del Palo, Arrastre, Salto del Pastor, Bola Canaria, Lucha del Garrote) marcadas como `is_featured = 1` en `modalities`, o se renombra/amplía? El seed actual es `database/002_seed_reference_data.sql`. *Sugerencia: mantener las 6 actuales.*
+
+- **P3 — Slug en values del form:** ¿OK cambiar `<option value="…">` para que envíe slug en lugar del name visible? Mejora robustez pero rompe URLs ya compartidas si las hubiera. *Sugerencia: sí, aún no hay tráfico que dependa de esas URLs.*
+
+- **P4 — Ficha pública por slug:** la ruta actual `/entidades/federacion-arrastre-canario` se convierte en `/entidades/{slug}`. ¿Confirmas?
+
+- **P5 — Tipos de entidad:** ¿mantener `Federación / Club / Colectivo / Asociación` quemados en el form como hoy, o leer de `entity_types`? *Sugerencia: leer de BDD, así si la importación crea un tipo nuevo aparece sin tocar código.*
+
+### High-level Task Breakdown (anexo)
+
+Cada paso es pequeño, verificable y se valida con el usuario antes del siguiente.
+
+#### Paso A — Inspección y soporte de parámetros en el router
+
+- Leer `app/Core/Router.php`. Confirmar si soporta `{param}`; si no, añadir soporte mínimo con regex.
+- Verificar query existente del admin contra `001_initial_schema.sql` para no inventar columnas.
+- **Success criteria:** test manual de una ruta dummy `/test/{slug}` que devuelve el slug recibido. (Sin commit; solo verificar mecánica).
+
+#### Paso B — Crear repositorios
+
+- `app/Models/ModalityRepository.php`: `featured(): array`, `all(): array`, `findBySlug(string $slug): ?array`.
+- `app/Models/MunicipalityRepository.php`: `filterable(): array`, `findBySlug(string $slug): ?array`.
+- `app/Models/EntityTypeRepository.php`: `all(): array`, `findBySlug(string $slug): ?array`.
+- `app/Models/EntityRepository.php`:
+  - `latestPublished(int $limit = 6): array` (con join a tipo + municipio + GROUP_CONCAT modalidades).
+  - `search(array $filters, int $limit = 100): array` (filtros `q`, `municipio_slug`, `tipo_slug`, `modalidad_slug`).
+  - `findBySlugWithRelations(string $slug): ?array` (entidad + contactos + redes + modalidades + instalaciones + tramos de edad).
+- **Success criteria:** `php -l` limpio en cada archivo. (No se ejecutan queries todavía, solo se valida sintaxis).
+
+#### Paso C — Cablear `HomeController`
+
+- Pasar a la vista: `modalities` (desde repo), `municipalities`, `entity_types`, `featured_entities`.
+- Reemplazar arrays quemados de `home.php` por las variables que llegan del controller.
+- Las dos `result-card` se convierten en bucle sobre `$featured_entities`. Si vacío, mostrar estado vacío ("Aún no hay entidades destacadas").
+- **Success criteria:**
+  - La home pública lista todas las modalidades destacadas de BDD (no las 6 hardcodeadas).
+  - El selector de municipios muestra los reales (incluyendo no-Tenerife si `is_filterable = 1`, aunque por defecto solo los 31 de Tenerife).
+  - El bloque de tarjetas muestra las entidades reales recién importadas.
+  - El usuario confirma visualmente en producción.
+
+#### Paso D — Cablear `SearchController` + vista resultados
+
+- Leer `q`, `municipio`, `tipo`, `modalidad` del GET, sanear, pasar a `EntityRepository::search()`.
+- Renderizar listado real con link a `/entidades/{slug}`.
+- Pintar marcadores Leaflet solo de entidades con coords.
+- Re-poblar selectores del form con las mismas fuentes que la home.
+- Manejar estados: sin resultados, sin filtros (mostrar todo limitado), error de BDD.
+- **Success criteria:**
+  - `/busqueda` sin filtros devuelve listado real.
+  - `/busqueda?modalidad=lucha-canaria` filtra correctamente.
+  - `/busqueda?municipio=adeje&tipo=federacion` combina filtros.
+  - URLs compartibles (mantener slugs en query string).
+
+#### Paso E — Cablear ficha pública
+
+- Cambiar ruta `/entidades/federacion-arrastre-canario` por `/entidades/{slug}` con parámetro.
+- `EntityController::show(string $slug)` resuelve con `findBySlugWithRelations`. Si no existe, 404.
+- Vista `entity-show.php` consume datos reales: cabecera, contacto, modalidades, características, mapa con coords reales, instalaciones, tramos de edad.
+- Bloques condicionales: si no hay redes, no mostrar el bloque; si no hay coords, ocultar mapa con aviso.
+- **Success criteria:**
+  - Una entidad importada es accesible por su slug.
+  - Slug inexistente devuelve 404 limpio.
+  - Bloques vacíos no rompen layout.
+
+#### Paso F — Verificación end-to-end
+
+- Pruebas manuales documentadas: home, búsqueda con cada filtro, ficha de 2–3 entidades distintas, móvil + desktop.
+- Confirmar que `composer audit` sigue sin vulnerabilidades.
+- Deuda técnica documentada: paginación, full-text, marcar entidades destacadas desde admin.
+
+### Project Status Board — Fase Cableado público
+
+- [x] Responder preguntas P1–P5. Decisiones tomadas por el modelo con autorización del usuario:
+  - P1 home stack → 1 entidad por modalidad destacada, sin repetir, omitiendo huecos.
+  - P2 modalidades destacadas → mantener las 6 actuales (seed 002).
+  - P3 slugs en form → sí, slug en `value=""`.
+  - P4 ruta ficha → `/entidades/{slug}`.
+  - P5 tipos → leer de `entity_types`.
+- [x] Paso A: router soporta `{param}` (regex `[^/]+`, args posicionales al handler).
+- [x] Paso B: repositorios en `app/Models/`: Modality, Municipality, EntityType, Entity.
+- [x] Paso C: `HomeController` y `app/Views/home.php` consumen BDD (modalidades, municipios, tipos y bloque destacado).
+- [x] Paso D: `SearchController` filtra por `q`/`municipio`/`tipo`/`modalidad` (slug), `app/Views/search-results.php` renderiza server-side y emite `window.__mapPoints`.
+- [x] Paso E: `EntityController::show($slug)` resuelve por slug o 404; `app/Views/entity-show.php` renderiza con datos reales y bloques condicionales.
+- [x] Paso F: `php -l` limpio en todos los archivos tocados; `composer audit` sin vulnerabilidades. Verificación end-to-end contra BDD real queda pendiente del usuario (no hay MySQL local accesible).
+
+### Notas de implementación
+
+- `app/Core/Router.php` reescrito para soportar parámetros `{name}`. Mantiene compatibilidad: rutas literales siguen funcionando porque se compilan como regex sin captura.
+- `EntityRepository::featuredByModality` evita duplicados: si una entidad ya fue elegida para una modalidad anterior, se busca la siguiente candidata.
+- `EntityRepository::search` escapa `%` y `_` en el `LIKE` para `q` y bindea todo lo demás con prepared statements.
+- `public/assets/js/app.js`: se eliminaron los `mapPoints` hardcoded y el filtrado client-side; ahora lee `window.__mapPoints` (JSON inyectado por el servidor) y hace `fitBounds` automático.
+- `home.php` ya no fuerza ruta fija; los enlaces "Ver ficha" usan `/entidades/{slug}` real.
+- Las dos `result-card` mock que el usuario veía en producción ahora se generan dinámicamente desde BDD (una por modalidad destacada que tenga al menos una entidad publicada).
+
+### Pendiente para el usuario
+
+- Desplegar a Plesk (subir cambios en `app/`, `routes/web.php`, `public/assets/js/app.js`).
+- Verificar visualmente en `https://www.deportesyjuegostradicionalescanarios.es/`:
+  - Home muestra entidades reales en el bloque destacado (no Federación de Arrastre Canario / Club de Bola Canaria de mockup).
+  - `/busqueda?modalidad=lucha-canaria` filtra correctamente.
+  - `/entidades/{slug}` carga una entidad real importada.
+  - Slug inexistente devuelve 404.
+
