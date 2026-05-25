@@ -52,7 +52,29 @@
                 map.setView(bounds[0], mode === 'entity' ? 14 : 12);
             }
 
+            hardenLeafletControls(node);
             node.classList.add('leaflet-ready');
+        });
+    }
+
+    function hardenLeafletControls(node) {
+        node.querySelectorAll('.leaflet-control-zoom a').forEach(function (control) {
+            control.removeAttribute('href');
+            control.setAttribute('role', 'button');
+            control.setAttribute('tabindex', '0');
+
+            control.addEventListener('click', function (event) {
+                event.preventDefault();
+            }, true);
+
+            control.addEventListener('keydown', function (event) {
+                if (event.key !== 'Enter' && event.key !== ' ') {
+                    return;
+                }
+
+                event.preventDefault();
+                control.click();
+            });
         });
     }
 
@@ -151,4 +173,3 @@
         initMaps();
     });
 }());
-

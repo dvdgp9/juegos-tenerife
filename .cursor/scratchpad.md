@@ -465,6 +465,7 @@ Cada paso es pequeño, verificable y se valida con el usuario antes del siguient
 - `EntityRepository::featuredByModality` evita duplicados: si una entidad ya fue elegida para una modalidad anterior, se busca la siguiente candidata.
 - `EntityRepository::search` escapa `%` y `_` en el `LIKE` para `q` y bindea todo lo demás con prepared statements.
 - `public/assets/js/app.js`: se eliminaron los `mapPoints` hardcoded y el filtrado client-side; ahora lee `window.__mapPoints` (JSON inyectado por el servidor) y hace `fitBounds` automático.
+- `public/assets/js/app.js`: los controles `+/-` de Leaflet se endurecieron quitando `href="#"`, añadiendo `role="button"`/`tabindex` y cancelando el click por captura para evitar que el navegador desplace la página al interactuar con el mapa.
 - `home.php` ya no fuerza ruta fija; los enlaces "Ver ficha" usan `/entidades/{slug}` real.
 - Las dos `result-card` mock que el usuario veía en producción ahora se generan dinámicamente desde BDD (una por modalidad destacada que tenga al menos una entidad publicada).
 
@@ -476,4 +477,3 @@ Cada paso es pequeño, verificable y se valida con el usuario antes del siguient
   - `/busqueda?modalidad=lucha-canaria` filtra correctamente.
   - `/entidades/{slug}` carga una entidad real importada.
   - Slug inexistente devuelve 404.
-
