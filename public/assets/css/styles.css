@@ -606,6 +606,48 @@ button:focus-visible {
     padding: 6px;
 }
 
+.modality-mosaic {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(34px, 1fr));
+    place-items: center;
+    gap: 8px;
+    overflow: hidden;
+}
+
+.modality-mosaic img {
+    width: 100%;
+    max-width: 58px;
+    aspect-ratio: 1;
+    object-fit: contain;
+    border-radius: 6px;
+    background: #ffffff;
+    padding: 4px;
+}
+
+.modality-mosaic-small {
+    flex: 0 0 64px;
+    width: 64px;
+    min-height: 64px;
+    border-radius: 8px;
+    background: var(--color-soft);
+    padding: 6px;
+}
+
+.modality-mosaic-small img {
+    max-width: 28px;
+    padding: 2px;
+}
+
+.modality-mosaic-large {
+    width: 76%;
+    grid-template-columns: repeat(auto-fit, minmax(54px, 1fr));
+}
+
+.modality-mosaic-large img {
+    max-width: 96px;
+    padding: 8px;
+}
+
 .entity-row > div {
     flex: 1 1 240px;
     min-width: 0;

@@ -114,7 +114,8 @@ final class EntityRepository
         $sql = 'SELECT e.id, e.name, e.slug, e.latitude, e.longitude,
                        et.name AS entity_type, et.slug AS entity_type_slug,
                        m.name AS municipality, m.slug AS municipality_slug,
-                       GROUP_CONCAT(DISTINCT mo.name ORDER BY em.sort_order SEPARATOR \', \') AS modalities
+                       GROUP_CONCAT(DISTINCT mo.name ORDER BY em.sort_order SEPARATOR \', \') AS modalities,
+                       GROUP_CONCAT(DISTINCT mo.icon_path ORDER BY em.sort_order SEPARATOR \'|\') AS modality_icons
                 FROM entities e
                 LEFT JOIN entity_types et ON et.id = e.entity_type_id
                 LEFT JOIN municipalities m ON m.id = e.municipality_id

@@ -10,11 +10,13 @@ $socialLinks = $entity['social_links'] ?? [];
 $facilities = $entity['facilities'] ?? [];
 $ageRanges = $entity['age_ranges'] ?? [];
 
-$primaryIcon = null;
+$modalityIcons = [];
 foreach ($modalities as $m) {
     if (!empty($m['icon_path'])) {
-        $primaryIcon = (string) $m['icon_path'];
-        break;
+        $modalityIcons[] = [
+            'src' => (string) $m['icon_path'],
+            'name' => (string) ($m['name'] ?? ''),
+        ];
     }
 }
 
@@ -71,8 +73,12 @@ $protocolLabel = static function (?string $status): string {
             <div class="entity-logo">
                 <?php if (!empty($entity['logo_path'])): ?>
                     <img src="<?= htmlspecialchars((string) $entity['logo_path'], ENT_QUOTES, 'UTF-8') ?>" alt="">
-                <?php elseif ($primaryIcon !== null): ?>
-                    <img src="<?= htmlspecialchars($primaryIcon, ENT_QUOTES, 'UTF-8') ?>" alt="">
+                <?php elseif ($modalityIcons !== []): ?>
+                    <div class="modality-mosaic modality-mosaic-large" aria-label="Pictogramas de modalidades">
+                        <?php foreach ($modalityIcons as $icon): ?>
+                            <img src="<?= htmlspecialchars($icon['src'], ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($icon['name'], ENT_QUOTES, 'UTF-8') ?>">
+                        <?php endforeach; ?>
+                    </div>
                 <?php endif; ?>
             </div>
             <div class="entity-title">

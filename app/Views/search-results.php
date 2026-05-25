@@ -112,20 +112,15 @@ foreach ($modalities as $m) {
                     <?php foreach ($results as $row): ?>
                         <article class="entity-row">
                             <?php
-                            $iconSrc = null;
-                            $modalityNames = (string) ($row['modalities'] ?? '');
-                            if ($modalityNames !== '') {
-                                $firstModality = trim(explode(',', $modalityNames)[0]);
-                                foreach ($modalities as $m) {
-                                    if ($m['name'] === $firstModality && !empty($m['icon_path'])) {
-                                        $iconSrc = (string) $m['icon_path'];
-                                        break;
-                                    }
-                                }
-                            }
+                            $iconSources = array_values(array_filter(array_map('trim', explode('|', (string) ($row['modality_icons'] ?? '')))));
+                            $modalityNames = array_values(array_filter(array_map('trim', explode(',', (string) ($row['modalities'] ?? '')))));
                             ?>
-                            <?php if ($iconSrc !== null): ?>
-                                <img src="<?= htmlspecialchars($iconSrc, ENT_QUOTES, 'UTF-8') ?>" alt="">
+                            <?php if ($iconSources !== []): ?>
+                                <div class="modality-mosaic modality-mosaic-small" aria-label="Pictogramas de modalidades">
+                                    <?php foreach ($iconSources as $index => $src): ?>
+                                        <img src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($modalityNames[$index] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                                    <?php endforeach; ?>
+                                </div>
                             <?php endif; ?>
                             <div>
                                 <p class="result-meta">
