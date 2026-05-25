@@ -150,8 +150,8 @@ p {
 h1 {
     max-width: 860px;
     margin: 0;
-    font-size: clamp(2.35rem, 5.2vw, 4.55rem);
-    line-height: 0.98;
+    font-size: clamp(2.2rem, 4.6vw, 3.75rem);
+    line-height: 1;
     letter-spacing: 0;
 }
 
@@ -164,7 +164,7 @@ h2 {
 
 h3 {
     margin: 0;
-    font-size: 1.08rem;
+    font-size: 1.02rem;
 }
 
 p {
@@ -509,6 +509,10 @@ button:focus-visible {
     font-size: 0.96rem;
 }
 
+.modality-card h3 {
+    font-size: 1rem;
+}
+
 .site-footer {
     display: flex;
     justify-content: space-between;
@@ -613,7 +617,7 @@ button:focus-visible {
 }
 
 .entity-row h2 {
-    font-size: 1.18rem;
+    font-size: 1.08rem;
     margin: 4px 0 0;
     line-height: 1.25;
     overflow-wrap: anywhere;
@@ -659,6 +663,8 @@ button:focus-visible {
 
 .entity-title h1 {
     max-width: 760px;
+    font-size: clamp(2rem, 4vw, 3.35rem);
+    line-height: 1.04;
 }
 
 .modality-list {
