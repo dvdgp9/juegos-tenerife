@@ -30,9 +30,10 @@ final class HomeController
             $entityRepo = new EntityRepository();
             $featuredEntities = $entityRepo->featuredByModality();
 
+            $allEntities = $entityRepo->search([]);
             $entityIds = array_map(
-                static fn($featured) => (int) $featured['entity']['id'],
-                $featuredEntities
+                static fn($entity) => (int) $entity['id'],
+                $allEntities
             );
             $mapPoints = $entityRepo->facilityMapPointsForEntities($entityIds);
         } catch (RuntimeException $exception) {
