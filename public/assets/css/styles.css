@@ -40,6 +40,7 @@ a {
 .site-header {
     position: sticky;
     top: 0;
+    z-index: 1200;
     display: grid;
     grid-template-columns: auto 1fr auto;
     align-items: center;
@@ -353,6 +354,8 @@ button:focus-visible {
 
 .map-shell {
     position: relative;
+    z-index: 0;
+    isolation: isolate;
     min-height: 440px;
     overflow: hidden;
     border-radius: 8px;
@@ -797,6 +800,9 @@ button:focus-visible {
 
 .admin-header {
     display: grid;
+    position: sticky;
+    top: 0;
+    z-index: 1200;
     grid-template-columns: auto 1fr auto;
     gap: 24px;
     align-items: center;
