@@ -376,6 +376,45 @@ button:focus-visible {
     font-family: var(--font-sans);
 }
 
+.map-zoom-controls {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 900;
+    display: grid;
+    overflow: hidden;
+    border: 2px solid rgba(0, 0, 0, 0.18);
+    border-radius: 4px;
+    background: #ffffff;
+    box-shadow: 0 6px 18px rgba(23, 32, 38, 0.14);
+}
+
+.map-zoom-controls button {
+    display: grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    border: 0;
+    border-bottom: 1px solid #cfd8d4;
+    border-radius: 0;
+    background: #ffffff;
+    color: #111820;
+    font: inherit;
+    font-size: 1.45rem;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.map-zoom-controls button:last-child {
+    border-bottom: 0;
+}
+
+.map-zoom-controls button:hover,
+.map-zoom-controls button:focus-visible {
+    background: #eef4f2;
+}
+
 .map-fallback {
     position: absolute;
     inset: 0;

@@ -26,7 +26,7 @@
 
             var map = window.L.map(node, {
                 scrollWheelZoom: false,
-                zoomControl: true
+                zoomControl: false
             }).setView(TENERIFE_CENTER, defaultZoom);
 
             window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -52,30 +52,44 @@
                 map.setView(bounds[0], mode === 'entity' ? 14 : 12);
             }
 
-            hardenLeafletControls(node);
+            addMapZoomControls(node, map);
             node.classList.add('leaflet-ready');
         });
     }
 
-    function hardenLeafletControls(node) {
-        node.querySelectorAll('.leaflet-control-zoom a').forEach(function (control) {
-            control.removeAttribute('href');
-            control.setAttribute('role', 'button');
-            control.setAttribute('tabindex', '0');
+    function addMapZoomControls(node, map) {
+        var controls = document.createElement('div');
+        controls.className = 'map-zoom-controls';
+        controls.setAttribute('aria-label', 'Controles de zoom del mapa');
 
-            control.addEventListener('click', function (event) {
+        [
+            ['+', 'Acercar', function () { map.zoomIn(); }],
+            ['-', 'Alejar', function () { map.zoomOut(); }]
+        ].forEach(function (item) {
+            var button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = item[0];
+            button.setAttribute('aria-label', item[1]);
+
+            button.addEventListener('mousedown', function (event) {
                 event.preventDefault();
-            }, true);
-
-            control.addEventListener('keydown', function (event) {
-                if (event.key !== 'Enter' && event.key !== ' ') {
-                    return;
-                }
-
-                event.preventDefault();
-                control.click();
             });
+
+            button.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                item[2]();
+            });
+
+            controls.appendChild(button);
         });
+
+        if (window.L.DomEvent) {
+            window.L.DomEvent.disableClickPropagation(controls);
+            window.L.DomEvent.disableScrollPropagation(controls);
+        }
+
+        node.appendChild(controls);
     }
 
     function setLoading(form, loading) {
