@@ -140,7 +140,7 @@ $protocolLabel = static function (?string $status): string {
                     <section class="detail-section">
                         <p class="eyebrow">Información General</p>
                         <h2>Trayectoria, principios y valores</h2>
-                        <div class="info-columns">
+                        <div class="info-columns entity-general-info">
                             <?php if (!empty($entity['history'])): ?>
                                 <article>
                                     <h3>Breve historia / trayectoria</h3>

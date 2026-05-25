@@ -716,6 +716,11 @@ button:focus-visible {
     border-top: 1px solid var(--color-line);
 }
 
+.entity-general-info p {
+    text-align: justify;
+    hyphens: auto;
+}
+
 .chips {
     display: flex;
     flex-wrap: wrap;
