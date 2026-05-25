@@ -12,13 +12,30 @@ $ageRanges = $entity['age_ranges'] ?? [];
 
 $modalityIcons = [];
 foreach ($modalities as $m) {
-    if (!empty($m['icon_path'])) {
-        $modalityIcons[] = [
-            'src' => (string) $m['icon_path'],
-            'name' => (string) ($m['name'] ?? ''),
-        ];
-    }
+    $modalityIcons[] = [
+        'src' => !empty($m['icon_path']) ? (string) $m['icon_path'] : null,
+        'name' => (string) ($m['name'] ?? ''),
+    ];
 }
+
+$modalityInitials = static function (string $name): string {
+    $words = preg_split('/\s+/', trim($name)) ?: [];
+    $letters = '';
+    foreach ($words as $word) {
+        $normalized = function_exists('mb_strtolower') ? mb_strtolower($word, 'UTF-8') : strtolower($word);
+        if ($word === '' || in_array($normalized, ['de', 'del', 'y', 'la', 'el'], true)) {
+            continue;
+        }
+        $initial = function_exists('mb_substr') ? mb_substr($word, 0, 1, 'UTF-8') : substr($word, 0, 1);
+        $letters .= function_exists('mb_strtoupper') ? mb_strtoupper($initial, 'UTF-8') : strtoupper($initial);
+        $length = function_exists('mb_strlen') ? mb_strlen($letters, 'UTF-8') : strlen($letters);
+        if ($length >= 3) {
+            break;
+        }
+    }
+
+    return $letters !== '' ? $letters : 'M';
+};
 
 $phones = [];
 $emails = [];
@@ -76,7 +93,11 @@ $protocolLabel = static function (?string $status): string {
                 <?php elseif ($modalityIcons !== []): ?>
                     <div class="modality-mosaic modality-mosaic-large" aria-label="Pictogramas de modalidades">
                         <?php foreach ($modalityIcons as $icon): ?>
-                            <img src="<?= htmlspecialchars($icon['src'], ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($icon['name'], ENT_QUOTES, 'UTF-8') ?>">
+                            <?php if ($icon['src'] !== null): ?>
+                                <img src="<?= htmlspecialchars($icon['src'], ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($icon['name'], ENT_QUOTES, 'UTF-8') ?>">
+                            <?php else: ?>
+                                <span title="<?= htmlspecialchars($icon['name'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($modalityInitials($icon['name']), ENT_QUOTES, 'UTF-8') ?></span>
+                            <?php endif; ?>
                         <?php endforeach; ?>
                     </div>
                 <?php endif; ?>

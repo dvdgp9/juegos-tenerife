@@ -16,10 +16,29 @@ $dbError = $dbError ?? null;
 
 $modalityIcons = [];
 foreach ($modalities as $m) {
-    if (!empty($m['slug'])) {
-        $modalityIcons[(string) $m['slug']] = $m['icon_path'] ?? null;
+    if (!empty($m['name'])) {
+        $modalityIcons[(string) $m['name']] = $m['icon_path'] ?? null;
     }
 }
+
+$modalityInitials = static function (string $name): string {
+    $words = preg_split('/\s+/', trim($name)) ?: [];
+    $letters = '';
+    foreach ($words as $word) {
+        $normalized = function_exists('mb_strtolower') ? mb_strtolower($word, 'UTF-8') : strtolower($word);
+        if ($word === '' || in_array($normalized, ['de', 'del', 'y', 'la', 'el'], true)) {
+            continue;
+        }
+        $initial = function_exists('mb_substr') ? mb_substr($word, 0, 1, 'UTF-8') : substr($word, 0, 1);
+        $letters .= function_exists('mb_strtoupper') ? mb_strtoupper($initial, 'UTF-8') : strtoupper($initial);
+        $length = function_exists('mb_strlen') ? mb_strlen($letters, 'UTF-8') : strlen($letters);
+        if ($length >= 3) {
+            break;
+        }
+    }
+
+    return $letters !== '' ? $letters : 'M';
+};
 ?>
 <!doctype html>
 <html lang="es">
@@ -112,13 +131,17 @@ foreach ($modalities as $m) {
                     <?php foreach ($results as $row): ?>
                         <article class="entity-row">
                             <?php
-                            $iconSources = array_values(array_filter(array_map('trim', explode('|', (string) ($row['modality_icons'] ?? '')))));
                             $modalityNames = array_values(array_filter(array_map('trim', explode(',', (string) ($row['modalities'] ?? '')))));
                             ?>
-                            <?php if ($iconSources !== []): ?>
+                            <?php if ($modalityNames !== []): ?>
                                 <div class="modality-mosaic modality-mosaic-small" aria-label="Pictogramas de modalidades">
-                                    <?php foreach ($iconSources as $index => $src): ?>
-                                        <img src="<?= htmlspecialchars($src, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($modalityNames[$index] ?? '', ENT_QUOTES, 'UTF-8') ?>">
+                                    <?php foreach ($modalityNames as $name): ?>
+                                        <?php $src = $modalityIcons[$name] ?? null; ?>
+                                        <?php if ($src !== null && $src !== ''): ?>
+                                            <img src="<?= htmlspecialchars((string) $src, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>">
+                                        <?php else: ?>
+                                            <span title="<?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($modalityInitials($name), ENT_QUOTES, 'UTF-8') ?></span>
+                                        <?php endif; ?>
                                     <?php endforeach; ?>
                                 </div>
                             <?php endif; ?>

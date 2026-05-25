@@ -614,14 +614,27 @@ button:focus-visible {
     overflow: hidden;
 }
 
-.modality-mosaic img {
+.modality-mosaic img,
+.modality-mosaic span {
     width: 100%;
     max-width: 58px;
     aspect-ratio: 1;
-    object-fit: contain;
     border-radius: 6px;
     background: #ffffff;
+}
+
+.modality-mosaic img {
+    object-fit: contain;
     padding: 4px;
+}
+
+.modality-mosaic span {
+    display: grid;
+    place-items: center;
+    color: var(--color-accent);
+    font-size: 0.72rem;
+    font-weight: 850;
+    line-height: 1;
 }
 
 .modality-mosaic-small {
@@ -633,9 +646,17 @@ button:focus-visible {
     padding: 6px;
 }
 
-.modality-mosaic-small img {
+.modality-mosaic-small img,
+.modality-mosaic-small span {
     max-width: 28px;
+}
+
+.modality-mosaic-small img {
     padding: 2px;
+}
+
+.modality-mosaic-small span {
+    font-size: 0.62rem;
 }
 
 .modality-mosaic-large {
@@ -643,9 +664,17 @@ button:focus-visible {
     grid-template-columns: repeat(auto-fit, minmax(54px, 1fr));
 }
 
-.modality-mosaic-large img {
+.modality-mosaic-large img,
+.modality-mosaic-large span {
     max-width: 96px;
+}
+
+.modality-mosaic-large img {
     padding: 8px;
+}
+
+.modality-mosaic-large span {
+    font-size: 1.15rem;
 }
 
 .entity-row > div {
