@@ -310,7 +310,7 @@ final class EntityImportService
             'slug' => $slug,
             'island' => $isTenerife ? 'Tenerife' : 'Gran Canaria',
             'is_tenerife' => $isTenerife ? 1 : 0,
-            'is_filterable' => $isTenerife ? 1 : 0,
+            'is_filterable' => 0,
             'sort_order' => $isTenerife ? 100 : 900,
         ]);
         $select = $pdo->prepare('SELECT id FROM municipalities WHERE slug = :slug LIMIT 1');

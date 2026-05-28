@@ -163,7 +163,7 @@ Success criteria:
 - [x] Implementar previsualización de importación Excel.
 - [x] Implementar confirmación de importación a base de datos.
 - [x] Implementar listado admin de entidades importadas.
-- [ ] Probar login e importación completa contra MySQL/MariaDB real.
+- [x] Probar login e importación completa contra MySQL/MariaDB real.
 - [x] Corregir incompatibilidad SQL en MariaDB por nombre reservado en `import_rows`.
 
 ## Current Status / Progress Tracking
@@ -477,3 +477,49 @@ Cada paso es pequeño, verificable y se valida con el usuario antes del siguient
   - `/busqueda?modalidad=lucha-canaria` filtra correctamente.
   - `/entidades/{slug}` carga una entidad real importada.
   - Slug inexistente devuelve 404.
+
+---
+
+## 2026-05-28 — Cambios solicitados (revisión cliente)
+
+### High-level Task Breakdown
+
+1. **Home — copy y estructura**
+   - Quitar `<p class="eyebrow">Censo oficial en Tenerife</p>` del hero.
+   - Quitar `<h2 id="busqueda-title">Encuentra entidades por municipio…</h2>` del bloque de búsqueda.
+   - Quitar `<h2>Modalidades principales como punto de entrada al censo</h2>` del bloque modalidades.
+   - Cambiar eyebrow "Deportes y Modalidades" → "Modalidades".
+   - Cambiar h2 de "Sobre el Censo" → "Una herramienta para preservar y acercar los Juegos Motores y Deportes tradicionales".
+
+2. **Search results — copy**
+   - Eyebrow "Resultados del Buscador" → "Buscador de entidades".
+
+3. **Footer (ambas vistas)**
+   - "Tenerife Deportes" → "Área de Deportes Cabildo de Tenerife".
+
+4. **Pictograma Lucha Canaria**
+   - Actualizar seed `002_seed_reference_data.sql`: `LUCHA_CANARIA_1.png` → `LUCHA_CANARIA_2.png`.
+   - SQL puntual para BD existente: `UPDATE modalities SET icon_path='/assets/images/pictogramas/LUCHA_CANARIA_2.png' WHERE slug='lucha-canaria';`
+
+5. **Favicon**
+   - Añadir `<link rel="icon" ...>` en `home.php` y `search-results.php` apuntando a `/assets/images/favicon.png`.
+   - El usuario debe guardar la imagen adjunta en `public/assets/images/favicon.png`.
+
+6. **Bug municipios "contaminados" en el desplegable**
+   - Restringir `MunicipalityRepository::filterable()` con `AND is_tenerife = 1 AND sort_order < 900` para excluir Agüimes y futuras filtraciones.
+   - Cambiar `EntityImportService::upsertMunicipality()` para que los municipios nuevos creados por importación entren con `is_filterable = 0` por defecto (no aparecen hasta validación manual).
+   - SQL de saneamiento para BD actual: marcar como no-filterable todo lo que no esté en la lista canónica de 31.
+
+7. **Destacados — Agüimes en Salto del Pastor**
+   - Decisión: opción (b) — no borrar la entidad, pero excluir entidades no-Tenerife de los destacados.
+   - Añadir `AND m.is_tenerife = 1` en `EntityRepository::featuredByModality()`.
+
+### Project Status Board
+
+- [x] 1. Home copy
+- [x] 2. Search results copy
+- [x] 3. Footer
+- [x] 4. Lucha Canaria icon
+- [x] 5. Favicon
+- [x] 6. Municipios dropdown
+- [x] 7. Destacados Tenerife-only

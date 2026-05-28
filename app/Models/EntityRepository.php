@@ -41,7 +41,7 @@ final class EntityRepository
              FROM entities e
              INNER JOIN entity_modalities em ON em.entity_id = e.id
              LEFT JOIN entity_types et ON et.id = e.entity_type_id
-             LEFT JOIN municipalities m ON m.id = e.municipality_id
+             INNER JOIN municipalities m ON m.id = e.municipality_id AND m.is_tenerife = 1
              WHERE em.modality_id = :modality_id
                AND e.is_published = 1
                AND e.deleted_at IS NULL

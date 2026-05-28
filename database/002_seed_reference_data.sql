@@ -45,7 +45,7 @@ INSERT INTO entity_types (name, slug) VALUES
 ON DUPLICATE KEY UPDATE name = VALUES(name);
 
 INSERT INTO modalities (name, slug, short_description, icon_path, is_featured, sort_order) VALUES
-('Lucha Canaria', 'lucha-canaria', 'Deporte vernáculo de Canarias basado en el desequilibrio del contrario mediante luchas, mañas o técnicas.', '/assets/images/pictogramas/LUCHA_CANARIA_1.png', 1, 10),
+('Lucha Canaria', 'lucha-canaria', 'Deporte vernáculo de Canarias basado en el desequilibrio del contrario mediante luchas, mañas o técnicas.', '/assets/images/pictogramas/LUCHA_CANARIA_2.png', 1, 10),
 ('Juego del Palo', 'juego-del-palo', 'Enfrentamiento lúdico entre dos personas usando bastones de madera bajo reglas pactadas.', '/assets/images/pictogramas/JUEGO_DEL_PALO_1.png', 1, 20),
 ('Arrastre Canario', 'arrastre-canario', 'Competición en la que una yunta arrastra una corza cargada en un recorrido de 35 metros.', '/assets/images/pictogramas/ARRASTRE_DE_GANADO_1.png', 1, 30),
 ('Salto del Pastor', 'salto-del-pastor', 'Uso de lanza o garrote con regatón para desplazarse por terrenos irregulares y pendientes.', '/assets/images/pictogramas/SALTO_DEL_PASTOR_1.png', 1, 40),

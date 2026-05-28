@@ -18,6 +18,8 @@ final class MunicipalityRepository
             'SELECT id, name, slug
              FROM municipalities
              WHERE is_filterable = 1
+               AND is_tenerife = 1
+               AND sort_order < 900
              ORDER BY sort_order ASC, name ASC'
         );
 

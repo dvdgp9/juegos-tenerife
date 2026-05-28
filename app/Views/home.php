@@ -18,6 +18,7 @@ $dbError = $dbError ?? null;
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars($title ?? 'Juegos Tenerife', ENT_QUOTES, 'UTF-8') ?></title>
+    <link rel="icon" type="image/png" href="/assets/images/favicon.png">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
     <link rel="stylesheet" href="/assets/css/styles.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
@@ -40,7 +41,6 @@ $dbError = $dbError ?? null;
     <main>
         <section class="hero">
             <div class="hero-copy">
-                <p class="eyebrow">Censo oficial en Tenerife</p>
                 <h1>Censo de Entidades y Colectivos de Deportes y Juegos Motores Tradicionales de Canarias</h1>
                 <p>Consulta entidades, colectivos, modalidades e instalaciones vinculadas a los deportes y juegos tradicionales en Tenerife.</p>
             </div>
@@ -59,7 +59,6 @@ $dbError = $dbError ?? null;
         <section class="search-panel" aria-labelledby="busqueda-title">
             <div class="section-heading compact">
                 <p class="eyebrow">Búsqueda Entidades</p>
-                <h2 id="busqueda-title">Encuentra entidades por municipio, tipo o modalidad</h2>
             </div>
             <form class="search-form" action="/busqueda" method="get" data-search-form>
                 <div class="field">
@@ -143,15 +142,14 @@ $dbError = $dbError ?? null;
         <section id="sobre-censo" class="content-band">
             <div class="section-heading">
                 <p class="eyebrow">Sobre el Censo</p>
-                <h2>Una herramienta para preservar y acercar las modalidades tradicionales</h2>
+                <h2>Una herramienta para preservar y acercar los Juegos Motores y Deportes tradicionales</h2>
             </div>
             <p>El Cabildo de Tenerife, a través de su Área de Deportes, ha desarrollado un Censo de Entidades y Colectivos de Deportes y Juegos Motores Tradicionales de Canarias en Tenerife con el objetivo de facilitar a la población una herramienta de búsqueda para identificar las entidades y colectivos que desarrollan actividades vinculadas a los deportes y juegos motores tradicionales canarios en su entorno cercano, promoviendo así la visibilidad y el acercamiento de estas modalidades a toda la ciudadanía, especialmente a la población infantil y juvenil, lo que ayudará a mejorar su preservación y arraigo en la Isla.</p>
         </section>
 
         <section id="modalidades" class="modalities-section">
             <div class="section-heading">
-                <p class="eyebrow">Deportes y Modalidades</p>
-                <h2>Modalidades principales como punto de entrada al censo</h2>
+                <p class="eyebrow">Modalidades</p>
             </div>
             <div class="modalities-grid">
                 <?php foreach ($modalities as $modality): ?>
@@ -172,7 +170,7 @@ $dbError = $dbError ?? null;
     </main>
 
     <footer class="site-footer">
-        <strong>Tenerife Deportes</strong>
+        <strong>Área de Deportes Cabildo de Tenerife</strong>
         <nav aria-label="Enlaces legales">
             <a href="#">Aviso Legal</a>
             <a href="#">Privacidad</a>

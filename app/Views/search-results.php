@@ -46,6 +46,7 @@ $modalityInitials = static function (string $name): string {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars($title ?? 'Resultados de búsqueda', ENT_QUOTES, 'UTF-8') ?></title>
+    <link rel="icon" type="image/png" href="/assets/images/favicon.png">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
     <link rel="stylesheet" href="/assets/css/styles.css">
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
@@ -67,7 +68,7 @@ $modalityInitials = static function (string $name): string {
 
     <main class="results-page">
         <section class="page-intro">
-            <p class="eyebrow">Resultados del Buscador</p>
+            <p class="eyebrow">Buscador de entidades</p>
             <h1>Entidades encontradas</h1>
             <?php if ($dbError !== null): ?>
                 <p>Hubo un problema consultando la base de datos. Inténtalo de nuevo en unos minutos.</p>
