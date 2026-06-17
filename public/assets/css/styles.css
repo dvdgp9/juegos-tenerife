@@ -677,61 +677,55 @@ button:focus-visible {
     font-size: 0.62rem;
 }
 
+/* El mosaico grande rellena siempre la caja del logo, adaptando
+   columnas y tamaño al número de modalidades para verse bien con cualquier cantidad. */
 .modality-mosaic-large {
-    width: min(82%, 260px);
+    width: 100%;
+    height: 100%;
+    padding: clamp(14px, 5%, 26px);
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    justify-content: center;
-    gap: 18px;
+    place-content: center;
+    gap: clamp(8px, 4%, 16px);
 }
 
 .modality-mosaic-large img,
 .modality-mosaic-large span {
     max-width: none;
-    width: clamp(72px, 7vw, 92px);
+    width: 100%;
 }
 
 .modality-mosaic-large img {
-    padding: 10px;
+    padding: 6px;
 }
 
 .modality-mosaic-large span {
-    font-size: 1.15rem;
+    font-size: clamp(1rem, 2.4vw, 1.6rem);
 }
 
+/* 1 modalidad: una sola imagen ocupando la caja. */
 .modality-mosaic-large.modality-mosaic-count-1 {
     grid-template-columns: 1fr;
-    width: min(70%, 180px);
 }
 
-.modality-mosaic-large.modality-mosaic-count-1 img,
-.modality-mosaic-large.modality-mosaic-count-1 span {
-    width: clamp(112px, 13vw, 150px);
-}
-
+/* 2 modalidades: dos columnas en una fila. */
 .modality-mosaic-large.modality-mosaic-count-2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: min(82%, 240px);
 }
 
+/* 3 modalidades: tres columnas en una fila. */
 .modality-mosaic-large.modality-mosaic-count-3 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    width: min(88%, 300px);
 }
 
-.modality-mosaic-large.modality-mosaic-count-4,
+/* 4 modalidades: rejilla 2x2. */
+.modality-mosaic-large.modality-mosaic-count-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* 5-6 modalidades: tres columnas, dos filas. */
 .modality-mosaic-large.modality-mosaic-count-5,
 .modality-mosaic-large.modality-mosaic-count-6 {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    width: min(88%, 310px);
-}
-
-.modality-mosaic-large.modality-mosaic-count-4 img,
-.modality-mosaic-large.modality-mosaic-count-4 span,
-.modality-mosaic-large.modality-mosaic-count-5 img,
-.modality-mosaic-large.modality-mosaic-count-5 span,
-.modality-mosaic-large.modality-mosaic-count-6 img,
-.modality-mosaic-large.modality-mosaic-count-6 span {
-    width: clamp(60px, 6vw, 80px);
 }
 
 .entity-row > div {
@@ -1229,18 +1223,8 @@ button:focus-visible {
     }
 
     .modality-mosaic-large {
-        width: min(84%, 240px);
-        gap: 12px;
-    }
-
-    .modality-mosaic-large img,
-    .modality-mosaic-large span {
-        width: clamp(54px, 18vw, 78px);
-    }
-
-    .modality-mosaic-large.modality-mosaic-count-1 img,
-    .modality-mosaic-large.modality-mosaic-count-1 span {
-        width: clamp(92px, 30vw, 124px);
+        padding: clamp(12px, 4%, 20px);
+        gap: clamp(6px, 3%, 12px);
     }
 
     .map-island {
