@@ -92,7 +92,7 @@ $protocolLabel = static function (?string $status): string {
                 <?php if (!empty($entity['logo_path'])): ?>
                     <img src="<?= htmlspecialchars((string) $entity['logo_path'], ENT_QUOTES, 'UTF-8') ?>" alt="">
                 <?php elseif ($modalityIcons !== []): ?>
-                    <div class="modality-mosaic modality-mosaic-large" aria-label="Pictogramas de modalidades">
+                    <div class="modality-mosaic modality-mosaic-large modality-mosaic-count-<?= min(count($modalityIcons), 6) ?>" aria-label="Pictogramas de modalidades">
                         <?php foreach ($modalityIcons as $icon): ?>
                             <?php if ($icon['src'] !== null): ?>
                                 <img src="<?= htmlspecialchars($icon['src'], ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($icon['name'], ENT_QUOTES, 'UTF-8') ?>">
