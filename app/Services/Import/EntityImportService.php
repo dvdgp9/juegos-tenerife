@@ -13,6 +13,16 @@ use RuntimeException;
 
 final class EntityImportService
 {
+    private const MODALITY_ICON_PATHS = [
+        'levantamiento-de-arado' => '/assets/images/iconos-deportes/LEVANTAMIENTO_ARADO_2.png',
+        'levantamiento-y-pulseo-de-piedra' => '/assets/images/iconos-deportes/LEVANTAMIENTO_PIEDRA_2.png',
+        'petanca' => '/assets/images/iconos-deportes/PETANCA_2.png',
+        'billarda-canaria' => '/assets/images/iconos-deportes/BILLARDA_CANARIA_2.png',
+        'pina' => '/assets/images/iconos-deportes/PILA_CANARIA_2.png',
+        'pila-canaria' => '/assets/images/iconos-deportes/PILA_CANARIA_2.png',
+        'pina-canaria' => '/assets/images/iconos-deportes/PILA_CANARIA_2.png',
+    ];
+
     private ExcelPreviewService $excel;
     private GoogleMapsCoordinateExtractor $maps;
 
@@ -364,9 +374,30 @@ final class EntityImportService
             }
 
             $modalityId = $this->upsertSimpleLookup($pdo, 'modalities', $name);
+            $this->syncModalityIcon($pdo, $name);
             $statement = $pdo->prepare('INSERT IGNORE INTO entity_modalities (entity_id, modality_id, sort_order) VALUES (:entity_id, :modality_id, :sort_order)');
             $statement->execute(['entity_id' => $entityId, 'modality_id' => $modalityId, 'sort_order' => ($index + 1) * 10]);
         }
+    }
+
+    private function syncModalityIcon(PDO $pdo, string $name): void
+    {
+        $slug = Slugger::slug($name);
+        $iconPath = self::MODALITY_ICON_PATHS[$slug] ?? null;
+        if ($iconPath === null) {
+            return;
+        }
+
+        $statement = $pdo->prepare(
+            'UPDATE modalities
+             SET icon_path = :icon_path
+             WHERE slug = :slug
+               AND (icon_path IS NULL OR icon_path = \'\')'
+        );
+        $statement->execute([
+            'icon_path' => $iconPath,
+            'slug' => $slug,
+        ]);
     }
 
     /**

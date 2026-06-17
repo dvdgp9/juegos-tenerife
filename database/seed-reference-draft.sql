@@ -42,8 +42,8 @@ INSERT INTO modalities (name, slug, short_description, icon_path, is_featured, s
 ('Salto del Pastor', 'salto-del-pastor', 'Uso de lanza o garrote con regatón para desplazarse por terrenos irregulares y pendientes.', '/assets/images/pictogramas/SALTO_DEL_PASTOR_1.png', 1, 40),
 ('Bola Canaria', 'bola-canaria', 'Juego de precisión en el que se lanzan bolas para situarlas lo más cerca posible del boliche.', '/assets/images/pictogramas/BOLA_CANARIA_1.png', 1, 50),
 ('Lucha del Garrote', 'lucha-del-garrote', 'Sistema tradicional de combate y defensa personal con bastón grueso o lata.', '/assets/images/pictogramas/JUEGO_DEL_GARROTE_1.png', 1, 60),
-('Levantamiento de Arado', 'levantamiento-de-arado', NULL, NULL, 0, 100),
-('Levantamiento y Pulseo de Piedra', 'levantamiento-y-pulseo-de-piedra', NULL, NULL, 0, 110),
-('Petanca', 'petanca', NULL, NULL, 0, 120),
-('Billarda Canaria', 'billarda-canaria', NULL, NULL, 0, 130),
-('Pina', 'pina', NULL, NULL, 0, 140);
+('Levantamiento de Arado', 'levantamiento-de-arado', NULL, '/assets/images/iconos-deportes/LEVANTAMIENTO_ARADO_2.png', 0, 100),
+('Levantamiento y Pulseo de Piedra', 'levantamiento-y-pulseo-de-piedra', NULL, '/assets/images/iconos-deportes/LEVANTAMIENTO_PIEDRA_2.png', 0, 110),
+('Petanca', 'petanca', NULL, '/assets/images/iconos-deportes/PETANCA_2.png', 0, 120),
+('Billarda Canaria', 'billarda-canaria', NULL, '/assets/images/iconos-deportes/BILLARDA_CANARIA_2.png', 0, 130),
+('Pina', 'pina', NULL, '/assets/images/iconos-deportes/PILA_CANARIA_2.png', 0, 140);

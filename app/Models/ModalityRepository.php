@@ -30,7 +30,7 @@ final class ModalityRepository
     public function all(): array
     {
         $statement = Database::connection()->query(
-            'SELECT id, name, slug
+            'SELECT id, name, slug, icon_path
              FROM modalities
              ORDER BY is_featured DESC, sort_order ASC, name ASC'
         );

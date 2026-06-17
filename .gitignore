@@ -1,5 +1,6 @@
 .DS_Store
-Fotos-instalaciones-tenerife/
+/Fotos-instalaciones-tenerife/
+/Iconos-deportes/
 /.env
 /storage/cache/*
 /storage/imports/*

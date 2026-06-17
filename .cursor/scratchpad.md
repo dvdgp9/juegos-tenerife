@@ -523,3 +523,14 @@ Cada paso es pequeño, verificable y se valida con el usuario antes del siguient
 - [x] 5. Favicon
 - [x] 6. Municipios dropdown
 - [x] 7. Destacados Tenerife-only
+
+---
+
+## 2026-06-17 — Iconos secundarios de modalidades
+
+- Copiados iconos de `Iconos-deportes/Fondo transparente dibujo oscuro/` a `public/assets/images/iconos-deportes/`.
+- La carpeta fuente local `/Iconos-deportes/` queda ignorada; se versionan solo los assets públicos.
+- `ModalityRepository::all()` ahora devuelve `icon_path`, necesario para miniaturas en resultados.
+- `database/006_update_modality_icons.sql` actualiza la BDD existente con iconos para modalidades secundarias: Levantamiento de Arado, Levantamiento y Pulseo de Piedra, Petanca, Billarda Canaria y Pina.
+- `EntityImportService` asigna iconos automáticamente a esas modalidades si aparecen en futuras importaciones.
+- Las 6 modalidades principales del inicio no cambian de comportamiento; los iconos secundarios se usan en miniaturas de fichas/listados.
