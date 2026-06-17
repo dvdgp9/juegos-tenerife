@@ -9,7 +9,7 @@
 <body class="admin-auth-body">
     <main class="admin-auth">
         <a class="brand admin-brand" href="/" aria-label="Volver a la web pública">
-            <img src="/assets/images/logo-dxt-tenerife.png" alt="Tenerife Deportes">
+            <img src="/assets/images/logo-dxt-activa-tu-vida.png" alt="Tenerife Deportes">
         </a>
         <section class="admin-auth-panel" aria-labelledby="login-title">
             <p class="eyebrow">Área privada</p>

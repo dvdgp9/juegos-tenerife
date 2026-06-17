@@ -9,7 +9,7 @@
 <body>
     <header class="admin-header">
         <a class="brand" href="/admin" aria-label="Panel de administración">
-            <img src="/assets/images/logo-dxt-tenerife.png" alt="Tenerife Deportes">
+            <img src="/assets/images/logo-dxt-activa-tu-vida.png" alt="Tenerife Deportes">
         </a>
         <nav class="admin-nav" aria-label="Administración">
             <a href="/admin">Panel</a>

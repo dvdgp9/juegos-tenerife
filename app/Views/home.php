@@ -28,12 +28,12 @@ $dbError = $dbError ?? null;
 <body>
     <header class="site-header">
         <a class="brand" href="/" aria-label="Inicio">
-            <img src="/assets/images/logo-dxt-tenerife.png" alt="Tenerife Deportes">
+            <img src="/assets/images/logo-dxt-activa-tu-vida.png" alt="Tenerife Deportes">
         </a>
         <nav class="main-nav" aria-label="Navegación principal">
             <a href="/busqueda">Búsqueda Entidades</a>
             <a href="#sobre-censo">Sobre el Censo</a>
-            <a href="#modalidades">Deportes y Modalidades</a>
+            <a href="#modalidades">Modalidades</a>
         </nav>
         <a class="header-action" href="mailto:deportesdetenerife@gmail.com">Comunicar actualización</a>
     </header>
@@ -43,16 +43,6 @@ $dbError = $dbError ?? null;
             <div class="hero-copy">
                 <h1>Censo de Entidades y Colectivos de Deportes y Juegos Motores Tradicionales de Canarias</h1>
                 <p>Consulta entidades, colectivos, modalidades e instalaciones vinculadas a los deportes y juegos tradicionales en Tenerife.</p>
-            </div>
-            <div class="hero-collage" aria-label="Modalidades destacadas">
-                <?php foreach ($modalities as $index => $modality): ?>
-                    <article class="collage-tile collage-tile-<?= $index + 1 ?>">
-                        <?php if (!empty($modality['icon_path'])): ?>
-                            <img src="<?= htmlspecialchars((string) $modality['icon_path'], ENT_QUOTES, 'UTF-8') ?>" alt="">
-                        <?php endif; ?>
-                        <span><?= htmlspecialchars((string) $modality['name'], ENT_QUOTES, 'UTF-8') ?></span>
-                    </article>
-                <?php endforeach; ?>
             </div>
         </section>
 
@@ -84,7 +74,7 @@ $dbError = $dbError ?? null;
                     </select>
                 </div>
                 <div class="field">
-                    <label for="modalidad">Deportes y Modalidades Lúdicas</label>
+                    <label for="modalidad">Modalidades Lúdicas</label>
                     <select id="modalidad" name="modalidad">
                         <option value="">Todas las modalidades</option>
                         <?php foreach ($modalities as $modality): ?>

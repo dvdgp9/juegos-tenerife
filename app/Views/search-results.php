@@ -56,12 +56,12 @@ $modalityInitials = static function (string $name): string {
 <body>
     <header class="site-header">
         <a class="brand" href="/" aria-label="Inicio">
-            <img src="/assets/images/logo-dxt-tenerife.png" alt="Tenerife Deportes">
+            <img src="/assets/images/logo-dxt-activa-tu-vida.png" alt="Tenerife Deportes">
         </a>
         <nav class="main-nav" aria-label="Navegación principal">
             <a href="/busqueda">Búsqueda Entidades</a>
             <a href="/#sobre-censo">Sobre el Censo</a>
-            <a href="/#modalidades">Deportes y Modalidades</a>
+            <a href="/#modalidades">Modalidades</a>
         </nav>
         <a class="header-action" href="mailto:deportesdetenerife@gmail.com">Comunicar actualización</a>
     </header>
