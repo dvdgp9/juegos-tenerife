@@ -534,3 +534,36 @@ Cada paso es pequeño, verificable y se valida con el usuario antes del siguient
 - `database/006_update_modality_icons.sql` actualiza la BDD existente con iconos para modalidades secundarias: Levantamiento de Arado, Levantamiento y Pulseo de Piedra, Petanca, Billarda Canaria y Pina.
 - `EntityImportService` asigna iconos automáticamente a esas modalidades si aparecen en futuras importaciones.
 - Las 6 modalidades principales del inicio no cambian de comportamiento; los iconos secundarios se usan en miniaturas de fichas/listados.
+
+---
+
+## 2026-06-19 — Fichas editoriales de modalidades
+
+### Background and Motivation
+
+Las seis tarjetas de modalidades principales de la portada deben enlazar a páginas públicas con la información facilitada en `DESCRIPCIÓN MODALIDADES PARA CENSO.docx` y las fotografías oficiales adjuntas.
+
+### Key Challenges and Analysis
+
+- El contenido es editorial y estable; se versionará en PHP para evitar una migración SQL innecesaria.
+- La URL pública será `/modalidades/{slug}`, reutilizando los slugs ya existentes en el censo.
+- Las fichas tendrán imagen protagonista, lectura por secciones y acceso al buscador filtrado por modalidad.
+- Solo las seis modalidades principales tendrán ficha editorial por ahora; un slug no soportado devolverá 404.
+
+### High-level Task Breakdown
+
+1. Crear catálogo de contenido para las seis modalidades y ruta/controlador público.
+2. Crear vista editorial responsive y enlazar las tarjetas de inicio.
+3. Incorporar y optimizar las seis imágenes facilitadas.
+4. Verificar sintaxis PHP, rutas, contenido y estilos; solicitar validación visual en Plesk.
+
+### Project Status Board
+
+- [ ] Fichas editoriales de las seis modalidades principales — implementación verificada; pendiente validación manual del usuario
+
+### Executor's Feedback or Assistance Requests
+
+- Implementadas las rutas `/modalidades/{slug}`, el catálogo editorial, la vista responsive, los enlaces desde inicio y las seis fotografías.
+- Verificación automática: las seis fichas responden 200 con imagen y CTA al buscador; slug inexistente responde 404; `php -l` y `git diff --check` limpios; `composer audit --no-dev` sin vulnerabilidades.
+- Verificación visual local realizada a 1280×720 y 390×844, sin desbordamiento horizontal ni solapamientos.
+- No se requiere cambio de base de datos. Se solicita validación manual del usuario antes de marcar la tarea como completada.

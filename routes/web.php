@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use JuegosTenerife\Controllers\HomeController;
 use JuegosTenerife\Controllers\EntityController;
+use JuegosTenerife\Controllers\ModalityController;
 use JuegosTenerife\Controllers\SearchController;
 use JuegosTenerife\Controllers\Admin\AuthController;
 use JuegosTenerife\Controllers\Admin\DashboardController;
@@ -12,6 +13,7 @@ use JuegosTenerife\Controllers\Admin\ImportController;
 
 $router->get('/', [HomeController::class, 'index']);
 $router->get('/busqueda', [SearchController::class, 'index']);
+$router->get('/modalidades/{slug}', [ModalityController::class, 'show']);
 $router->get('/entidades/{slug}', [EntityController::class, 'show']);
 $router->get('/admin/login', [AuthController::class, 'login']);
 $router->post('/admin/login', [AuthController::class, 'authenticate']);
