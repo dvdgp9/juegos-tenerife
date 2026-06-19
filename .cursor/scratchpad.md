@@ -559,7 +559,8 @@ Las seis tarjetas de modalidades principales de la portada deben enlazar a pági
 
 ### Project Status Board
 
-- [ ] Fichas editoriales de las seis modalidades principales — implementación verificada; pendiente validación manual del usuario
+- [x] Fichas editoriales de las seis modalidades principales — validadas por el usuario
+- [ ] Ocultar temporalmente los enlaces desde las tarjetas de inicio — pendiente validación en Plesk
 
 ### Executor's Feedback or Assistance Requests
 
@@ -567,3 +568,4 @@ Las seis tarjetas de modalidades principales de la portada deben enlazar a pági
 - Verificación automática: las seis fichas responden 200 con imagen y CTA al buscador; slug inexistente responde 404; `php -l` y `git diff --check` limpios; `composer audit --no-dev` sin vulnerabilidades.
 - Verificación visual local realizada a 1280×720 y 390×844, sin desbordamiento horizontal ni solapamientos.
 - No se requiere cambio de base de datos. Se solicita validación manual del usuario antes de marcar la tarea como completada.
+- Tras la validación, el usuario solicita posponer el anuncio público. Los enlaces de las tarjetas se controlan con `$showModalityDetailLinks = false` en `home.php`; las fichas permanecen implementadas y podrán reactivarse cambiando el valor a `true`.

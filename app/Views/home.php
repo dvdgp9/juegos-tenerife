@@ -11,6 +11,7 @@ $entityTypes = $entityTypes ?? [];
 $featuredEntities = $featuredEntities ?? [];
 $mapPoints = $mapPoints ?? [];
 $dbError = $dbError ?? null;
+$showModalityDetailLinks = false;
 ?>
 <!doctype html>
 <html lang="es">
@@ -152,7 +153,9 @@ $dbError = $dbError ?? null;
                             <?php if (!empty($modality['short_description'])): ?>
                                 <p><?= htmlspecialchars((string) $modality['short_description'], ENT_QUOTES, 'UTF-8') ?></p>
                             <?php endif; ?>
-                            <a class="modality-card-link" href="/modalidades/<?= htmlspecialchars((string) $modality['slug'], ENT_QUOTES, 'UTF-8') ?>">Conocer la modalidad</a>
+                            <?php if ($showModalityDetailLinks): ?>
+                                <a class="modality-card-link" href="/modalidades/<?= htmlspecialchars((string) $modality['slug'], ENT_QUOTES, 'UTF-8') ?>">Conocer la modalidad</a>
+                            <?php endif; ?>
                         </div>
                     </article>
                 <?php endforeach; ?>
