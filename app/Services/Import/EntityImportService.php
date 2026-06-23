@@ -13,6 +13,46 @@ use RuntimeException;
 
 final class EntityImportService
 {
+    private const MUNICIPALITY_ALIASES = [
+        'la-laguna' => 'San Cristóbal de La Laguna',
+    ];
+
+    private const KNOWN_MUNICIPALITIES = [
+        'adeje',
+        'arafo',
+        'arico',
+        'arona',
+        'buenavista-del-norte',
+        'candelaria',
+        'el-rosario',
+        'el-sauzal',
+        'el-tanque',
+        'fasnia',
+        'garachico',
+        'granadilla-de-abona',
+        'guia-de-isora',
+        'guimar',
+        'icod-de-los-vinos',
+        'la-guancha',
+        'la-laguna',
+        'la-matanza-de-acentejo',
+        'la-orotava',
+        'la-victoria-de-acentejo',
+        'los-realejos',
+        'los-silos',
+        'puerto-de-la-cruz',
+        'san-cristobal-de-la-laguna',
+        'san-juan-de-la-rambla',
+        'san-miguel-de-abona',
+        'santa-cruz-de-tenerife',
+        'santa-ursula',
+        'santiago-del-teide',
+        'tacoronte',
+        'tegueste',
+        'vilaflor-de-chasna',
+        'aguimes',
+    ];
+
     private const MODALITY_ICON_PATHS = [
         'levantamiento-de-arado' => '/assets/images/iconos-deportes/LEVANTAMIENTO_ARADO_2.png',
         'levantamiento-y-pulseo-de-piedra' => '/assets/images/iconos-deportes/LEVANTAMIENTO_PIEDRA_2.png',
@@ -113,8 +153,9 @@ final class EntityImportService
         }
 
         $entityTypeId = $this->upsertSimpleLookup($pdo, 'entity_types', (string) ($row['Tipo Entidad'] ?? 'Sin tipo'));
-        $municipalityId = $this->upsertMunicipality($pdo, (string) ($row['Municipio'] ?? ''));
-        $slug = $this->uniqueSlugForEntity($pdo, $name, (string) ($row['Municipio'] ?? ''));
+        $municipality = $this->normalizeMunicipalityName((string) ($row['Municipio'] ?? ''));
+        $municipalityId = $this->upsertMunicipality($pdo, $municipality);
+        $slug = $this->uniqueSlugForEntity($pdo, $name, $municipality);
         $existingId = $this->findEntityIdBySlug($pdo, $slug);
 
         $statement = $pdo->prepare(
@@ -303,7 +344,7 @@ final class EntityImportService
 
     private function upsertMunicipality(PDO $pdo, string $name): ?int
     {
-        $name = trim($name);
+        $name = $this->normalizeMunicipalityName($name);
         if ($name === '') {
             return null;
         }
@@ -430,7 +471,7 @@ final class EntityImportService
                 'label' => 'Persona de contacto',
                 'person_name' => $row['Persona Contacto'],
                 'role_title' => $this->nullable($row['Cargo Contacto'] ?? ''),
-                'phone' => $this->nullable(trim(($row['Teléfono1 #23'] ?? '') . ' ' . ($row['Teléfono2 #24'] ?? ''))),
+                'phone' => $this->nullable(trim(($row['Teléfono Contacto1'] ?? '') . ' ' . ($row['Teléfono Contacto2'] ?? ''))),
                 'email' => $this->nullable($row['Email'] ?? ''),
                 'value' => $row['Persona Contacto'],
                 'is_primary' => 1,
@@ -472,7 +513,7 @@ final class EntityImportService
                 continue;
             }
 
-            $facility = $this->parseFacility($raw);
+            $facility = $this->parseFacility($raw, (string) ($row['Municipio'] ?? ''));
             $municipalityId = $this->upsertMunicipality($pdo, $facility['municipality']);
             $slug = Slugger::slug($facility['name'] . '-' . $facility['municipality']);
             $coordinates = $facility['google_maps_url'] !== null ? $this->maps->extract($facility['google_maps_url']) : null;
@@ -550,20 +591,41 @@ final class EntityImportService
     /**
      * @return array{municipality: string, name: string, google_maps_url: ?string}
      */
-    private function parseFacility(string $raw): array
+    private function parseFacility(string $raw, string $defaultMunicipality): array
     {
         preg_match('~https?://\\S+~', $raw, $urlMatch);
         $url = $urlMatch[0] ?? null;
         $text = trim($url !== null ? str_replace($url, '', $raw) : $raw);
+        $text = trim($text, " \t\n\r\0\x0B:");
         $parts = array_map('trim', explode(':', $text, 2));
-        $municipality = $parts[0] ?? '';
-        $name = $parts[1] ?? $text;
+        $municipality = $this->normalizeMunicipalityName($defaultMunicipality);
+        $name = $text;
+
+        if (count($parts) === 2 && $parts[0] !== '' && $parts[1] !== '' && $this->isKnownMunicipality($parts[0])) {
+            $municipality = $this->normalizeMunicipalityName($parts[0]);
+            $name = $parts[1];
+        }
 
         return [
             'municipality' => $municipality !== '' ? $municipality : 'Sin municipio',
             'name' => $name !== '' ? $name : $text,
             'google_maps_url' => $url,
         ];
+    }
+
+    private function normalizeMunicipalityName(string $name): string
+    {
+        $name = trim($name);
+        if ($name === '') {
+            return '';
+        }
+
+        return self::MUNICIPALITY_ALIASES[Slugger::slug($name)] ?? $name;
+    }
+
+    private function isKnownMunicipality(string $name): bool
+    {
+        return in_array(Slugger::slug($name), self::KNOWN_MUNICIPALITIES, true);
     }
 
     private function nullable(string $value): ?string

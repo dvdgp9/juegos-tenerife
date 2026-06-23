@@ -5,13 +5,17 @@ declare(strict_types=1);
 namespace JuegosTenerife\Services\Import;
 
 use DateTimeInterface;
+use JuegosTenerife\Services\Support\Slugger;
 use OpenSpout\Reader\XLSX\Reader;
 use RuntimeException;
 
 final class ExcelPreviewService
 {
+    private const MUNICIPALITY_ALIASES = [
+        'la-laguna' => 'San Cristóbal de La Laguna',
+    ];
+
     private const EXPECTED_HEADERS = [
-        'Tipo Entidad',
         'Modalidad1',
         'Modalidad2',
         'Modalidad3',
@@ -126,7 +130,7 @@ final class ExcelPreviewService
                         $warnings[] = $warning;
                     }
 
-                    $municipality = $rowMap['Municipio'] ?? '';
+                    $municipality = $this->normalizeMunicipalityName($rowMap['Municipio'] ?? '');
                     if ($municipality !== '') {
                         $municipalities[$municipality] = ($municipalities[$municipality] ?? 0) + 1;
                     }
@@ -155,7 +159,7 @@ final class ExcelPreviewService
                             'row' => $rowIndex,
                             'type' => $rowMap['Tipo Entidad'] ?? '',
                             'name' => $rowMap['Nombre Entidad'] ?? '',
-                            'municipality' => $rowMap['Municipio'] ?? '',
+                            'municipality' => $municipality,
                             'modalities' => array_values(array_filter([
                                 $rowMap['Modalidad1'] ?? '',
                                 $rowMap['Modalidad2'] ?? '',
@@ -260,6 +264,7 @@ final class ExcelPreviewService
     public function mapRow(array $headers, array $values): array
     {
         $row = [];
+        $headerOccurrences = [];
 
         foreach ($headers as $index => $header) {
             if ($header === '') {
@@ -267,11 +272,29 @@ final class ExcelPreviewService
             }
 
             $key = $header;
+            $headerOccurrences[$header] = ($headerOccurrences[$header] ?? 0) + 1;
+
             if (isset($row[$key])) {
                 $key = $header . ' #' . ($index + 1);
             }
 
             $row[$key] = $values[$index] ?? '';
+
+            if ($header === 'Teléfono1' && $headerOccurrences[$header] === 2) {
+                $row['Teléfono Contacto1'] = $values[$index] ?? '';
+            }
+
+            if ($header === 'Teléfono2' && $headerOccurrences[$header] === 2) {
+                $row['Teléfono Contacto2'] = $values[$index] ?? '';
+            }
+        }
+
+        if (($row['Tipo Entidad'] ?? '') === '' && ($row['Tipo Entidad1'] ?? '') !== '') {
+            $row['Tipo Entidad'] = $row['Tipo Entidad1'];
+        }
+
+        if (($row['Tipo Entidad Complementaria'] ?? '') === '' && ($row['Tipo Entidad2'] ?? '') !== '') {
+            $row['Tipo Entidad Complementaria'] = $row['Tipo Entidad2'];
         }
 
         return $row;
@@ -304,6 +327,10 @@ final class ExcelPreviewService
     {
         $missing = [];
 
+        if (!in_array('Tipo Entidad', $headers, true) && !in_array('Tipo Entidad1', $headers, true)) {
+            $missing[] = 'Tipo Entidad / Tipo Entidad1';
+        }
+
         foreach (self::EXPECTED_HEADERS as $expectedHeader) {
             if (!in_array($expectedHeader, $headers, true)) {
                 $missing[] = $expectedHeader;
@@ -311,5 +338,15 @@ final class ExcelPreviewService
         }
 
         return $missing;
+    }
+
+    private function normalizeMunicipalityName(string $name): string
+    {
+        $name = trim($name);
+        if ($name === '') {
+            return '';
+        }
+
+        return self::MUNICIPALITY_ALIASES[Slugger::slug($name)] ?? $name;
     }
 }

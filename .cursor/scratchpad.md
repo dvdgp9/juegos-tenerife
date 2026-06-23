@@ -561,6 +561,7 @@ Las seis tarjetas de modalidades principales de la portada deben enlazar a pági
 
 - [x] Fichas editoriales de las seis modalidades principales — validadas por el usuario
 - [x] Reactivar los enlaces desde las tarjetas de inicio — pendiente validación en Plesk tras pull
+- [x] Adaptar importador al Excel definitivo `Listado Entidades Def.xlsx` — pendiente validación en Plesk
 
 ### Executor's Feedback or Assistance Requests
 
@@ -569,3 +570,5 @@ Las seis tarjetas de modalidades principales de la portada deben enlazar a pági
 - Verificación visual local realizada a 1280×720 y 390×844, sin desbordamiento horizontal ni solapamientos.
 - No se requiere cambio de base de datos. Se solicita validación manual del usuario antes de marcar la tarea como completada.
 - Tras la validación, el usuario pidió volver a mostrar los botones. Los enlaces de las tarjetas se controlan con `$showModalityDetailLinks = true` en `home.php`; las fichas permanecen implementadas y enlazadas desde inicio.
+- Executor revisó el Excel definitivo: hoja `ENTIDADES`, 41 filas con datos y 69 columnas. Cambios principales frente a la muestra: `Tipo Entidad` pasa a `Tipo Entidad1` + `Tipo Entidad2`; los teléfonos de contacto siguen como cabeceras duplicadas; muchas instalaciones no traen municipio explícito y deben heredar el municipio de la entidad.
+- Ajuste implementado: `ExcelPreviewService` acepta `Tipo Entidad1`, mantiene compatibilidad con `Tipo Entidad`, crea aliases internos para teléfonos de contacto y normaliza `La Laguna`; `EntityImportService` usa `Tipo Entidad1` como tipo principal, conserva `Tipo Entidad2` en raw data, normaliza municipios y parsea instalaciones heredando el municipio de la entidad salvo prefijo de municipio conocido. Verificaciones: `php -l`, preview del Excel definitivo, prueba de aliases, prueba de instalaciones y `composer audit --no-dev` correctos.
