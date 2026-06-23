@@ -11,7 +11,7 @@ $entityTypes = $entityTypes ?? [];
 $featuredEntities = $featuredEntities ?? [];
 $mapPoints = $mapPoints ?? [];
 $dbError = $dbError ?? null;
-$showModalityDetailLinks = false;
+$showModalityDetailLinks = true;
 ?>
 <!doctype html>
 <html lang="es">
