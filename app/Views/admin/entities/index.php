@@ -30,8 +30,8 @@
             <span>Ordenadas por última actualización</span>
         </div>
     </div>
-    <div class="table-scroll admin-table-wrap">
-        <table class="preview-table">
+    <div class="table-scroll admin-table-wrap admin-entities-table-wrap">
+        <table class="preview-table admin-entities-table">
             <thead>
                 <tr>
                     <th>Entidad</th>
@@ -45,20 +45,38 @@
             </thead>
             <tbody>
                 <?php foreach ($entities as $entity): ?>
+                    <?php
+                    $modalities = array_values(array_filter(array_map('trim', explode(',', (string) ($entity['modalities'] ?? '')))));
+                    $geoStatus = (string) ($entity['geocoding_status'] ?? '');
+                    $isPublished = ((int) $entity['is_published']) === 1;
+                    ?>
                     <tr>
-                        <td>
+                        <td class="entity-name-cell">
                             <strong><?= htmlspecialchars((string) $entity['name'], ENT_QUOTES, 'UTF-8') ?></strong>
-                            <small><?= htmlspecialchars((string) $entity['slug'], ENT_QUOTES, 'UTF-8') ?></small>
+                            <small>/entidades/<?= htmlspecialchars((string) $entity['slug'], ENT_QUOTES, 'UTF-8') ?></small>
                         </td>
-                        <td><?= htmlspecialchars((string) ($entity['entity_type'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                        <td><?= htmlspecialchars((string) ($entity['municipality'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                        <td><?= htmlspecialchars((string) ($entity['modalities'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                        <td><?= htmlspecialchars((string) ($entity['geocoding_status'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
-                        <td><?= ((int) $entity['is_published']) === 1 ? 'Publicada' : 'Borrador' ?></td>
+                        <td><span class="admin-muted-text"><?= htmlspecialchars((string) ($entity['entity_type'] ?? 'Sin tipo'), ENT_QUOTES, 'UTF-8') ?></span></td>
+                        <td><span class="admin-muted-text"><?= htmlspecialchars((string) ($entity['municipality'] ?? 'Sin municipio'), ENT_QUOTES, 'UTF-8') ?></span></td>
+                        <td>
+                            <?php if ($modalities === []): ?>
+                                <span class="admin-muted-text">Sin modalidades</span>
+                            <?php else: ?>
+                                <div class="admin-chip-list">
+                                    <?php foreach (array_slice($modalities, 0, 3) as $modality): ?>
+                                        <span><?= htmlspecialchars($modality, ENT_QUOTES, 'UTF-8') ?></span>
+                                    <?php endforeach; ?>
+                                    <?php if (count($modalities) > 3): ?>
+                                        <span>+<?= count($modalities) - 3 ?></span>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+                        </td>
+                        <td><span class="status-badge <?= $geoStatus === 'resolved' ? 'success' : 'neutral' ?>"><?= htmlspecialchars($geoStatus !== '' ? $geoStatus : 'pending', ENT_QUOTES, 'UTF-8') ?></span></td>
+                        <td><span class="status-badge <?= $isPublished ? 'success' : 'draft' ?>"><?= $isPublished ? 'Publicada' : 'Borrador' ?></span></td>
                         <td>
                             <div class="admin-row-actions">
-                                <a class="admin-table-link" href="/admin/entities/<?= (int) $entity['id'] ?>/edit">Editar</a>
-                                <a class="admin-table-link muted" href="/entidades/<?= htmlspecialchars((string) $entity['slug'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">Ver ficha</a>
+                                <a class="admin-action-button primary" href="/admin/entities/<?= (int) $entity['id'] ?>/edit">Editar</a>
+                                <a class="admin-action-button" href="/entidades/<?= htmlspecialchars((string) $entity['slug'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">Ver ficha</a>
                             </div>
                         </td>
                     </tr>
