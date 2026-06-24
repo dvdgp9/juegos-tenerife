@@ -742,11 +742,11 @@ Success criteria:
 - [ ] Paso 1: Ajustar importador a modo solo altas. Implementado por Executor; pendiente validación manual en Plesk antes de marcar completado.
 - [ ] Paso 2: Base común del admin. Implementado por Executor; pendiente revisión visual/manual en Plesk.
 - [ ] Paso 3: CRUD de entidades — formulario principal. Implementado por Executor; pendiente validación manual en Plesk.
-- [ ] Paso 4: CRUD de relaciones de entidad.
-- [ ] Paso 5: Gestión completa de instalaciones.
-- [ ] Paso 6: Uploads de logos/fotos/foto de modalidad.
-- [ ] Paso 7: CRUD de modalidades editable.
-- [ ] Paso 8: Gestión simple de usuarias.
+- [ ] Paso 4: CRUD de relaciones de entidad. Implementado por Executor; pendiente validación manual en Plesk.
+- [ ] Paso 5: Gestión completa de instalaciones. Implementado por Executor; pendiente validación manual en Plesk.
+- [ ] Paso 6: Uploads de logos/fotos/foto de modalidad. Implementado por Executor; pendiente validación manual en Plesk.
+- [ ] Paso 7: CRUD de modalidades editable. Implementado por Executor; pendiente validación manual en Plesk.
+- [ ] Paso 8: Gestión simple de usuarias. Implementado por Executor; pendiente validación manual en Plesk.
 - [ ] Paso 9: Auditoría y protección ante errores.
 - [ ] Paso 10: QA en Plesk y documentación de uso.
 
@@ -793,6 +793,76 @@ Antes de tocar base de datos real:
 - CSS añadido para formularios admin cómodos: navegación lateral por secciones, grids responsivos, helper text, barra de guardado sticky y acciones claras.
 - Verificación ejecutada: `php -l` en rutas/controlador/vistas, `composer audit --no-dev`, `git diff --check` y rutas protegidas locales en `127.0.0.1:8768` redirigiendo a login sin sesión.
 - Pendiente validación manual en Plesk con sesión real: crear entidad de prueba, editar una entidad existente, comprobar que la ficha pública refleja cambios y que slugs duplicados muestran error.
+
+2026-06-24 Executor:
+
+- Avance del Paso 4: relaciones de entidad.
+- El formulario de entidad ahora permite gestionar modalidades asociadas con checkboxes cómodos.
+- El formulario permite editar teléfonos, emails y persona de contacto.
+- El formulario permite editar Facebook, Instagram, YouTube, X y TikTok.
+- El guardado de `entities`, `entity_modalities`, `entity_contacts` y `entity_social_links` queda en la misma transacción.
+- Al editar una entidad existente se precargan modalidades, contactos y redes actuales.
+- Verificación ejecutada: `php -l app/Controllers/Admin/EntityController.php`, `php -l app/Views/admin/entities/form.php`, `git diff --check` y `composer audit --no-dev`.
+- Añadidos tramos de edad al Paso 4: los siete rangos del Excel se editan en el formulario y se guardan en `entity_age_ranges` dentro de la misma transacción.
+- Paso 4 queda técnicamente implementado para modalidades, contactos, redes y tramos de edad. Instalaciones quedan para Paso 5 y fotos para Paso 6.
+
+2026-06-24 Executor:
+
+- Implementado el Paso 5: gestión de instalaciones.
+- Añadidas rutas `GET /admin/facilities`, `GET /admin/facilities/new`, `POST /admin/facilities`, `GET /admin/facilities/{id}/edit` y `POST /admin/facilities/{id}`.
+- Añadido `Admin\FacilityController` con listado, crear, editar, validar y guardar instalaciones.
+- El formulario permite editar nombre, slug, municipio, dirección, localidad, código postal, enlace Maps, latitud, longitud, estado de geolocalización y notas.
+- El formulario permite asociar una instalación a una o varias entidades.
+- El guardado de `facilities` y `entity_facilities` va en transacción.
+- La navegación admin ya enlaza a `Instalaciones`.
+- Añadidas vistas `app/Views/admin/facilities/index.php` y `app/Views/admin/facilities/form.php`.
+- Ajustes CSS para listado/formulario de instalaciones, manteniendo la UX limpia y consistente con entidades.
+- Verificación ejecutada: `php -l` en controlador/vistas/rutas, `composer audit --no-dev`, `git diff --check` y rutas protegidas locales en `127.0.0.1:8768` redirigiendo a login sin sesión.
+- Pendiente validación manual en Plesk con sesión real: crear instalación, editar coordenadas, vincularla a una entidad y comprobar que aparece en ficha/mapa público.
+
+2026-06-24 Executor:
+
+- Avance del Paso 6: uploads de entidad.
+- Añadido `MediaUploadService` con validación estricta de JPG, PNG, WEBP y GIF, máximo 8 MB, detección MIME con `finfo`, `getimagesize` y nombres generados.
+- Añadido `public/uploads/.htaccess` para desactivar índices y bloquear ejecución de scripts dentro de uploads en Apache/Plesk.
+- El formulario de entidad permite subir logo.
+- El formulario de entidad permite subir varias fotos de galería.
+- Las fotos existentes pueden editar título/caption, texto alternativo, orden, destacada y marcarse para eliminar.
+- Los logos actualizan `entities.logo_path`; las fotos de galería se guardan en `media_files` con `owner_type = entity`.
+- La ficha pública carga `media_files` y muestra una sección Galería con foto destacada primero.
+- Verificación ejecutada: `php -l` en servicio/controlador/repositorio/vistas, `composer audit --no-dev` y `git diff --check`.
+- Pendiente del Paso 6/7: foto principal de modalidad, que se implementará junto con el CRUD de modalidades porque todavía no existe pantalla admin de modalidades.
+
+2026-06-24 Executor:
+
+- Implementado el Paso 7: CRUD editable de modalidades.
+- Añadidas rutas `GET /admin/modalities`, `GET /admin/modalities/new`, `POST /admin/modalities`, `GET /admin/modalities/{id}/edit` y `POST /admin/modalities/{id}`.
+- Añadido `Admin\ModalityController` con listado, crear, editar, validar slug y guardar modalidad.
+- La pantalla permite editar nombre, slug, descripción corta, descripción completa, información adicional, ruta de icono, destacada y orden.
+- La pantalla permite subir foto principal de modalidad, con validación mediante `MediaUploadService`, almacenamiento en `public/uploads/modalities/{id}` y registro en `media_files` con `owner_type = modality`.
+- La navegación admin ya enlaza a `Modalidades`.
+- La página pública `/modalidades/{slug}` mantiene el contenido PHP existente como fallback y usa la foto principal administrada si existe en BDD.
+- Si la base de datos no está disponible en la página pública de modalidad, se conserva el fallback estático para no romper la web.
+- Añadidas vistas `app/Views/admin/modalities/index.php` y `app/Views/admin/modalities/form.php`.
+- Ajustes CSS para miniaturas, foto principal y listados de modalidades, manteniendo consistencia con entidades e instalaciones.
+- Verificación ejecutada: `php -l` en controlador/vistas/rutas, `composer audit --no-dev`, `git diff --check`, rutas protegidas locales en `127.0.0.1:8769` redirigiendo a login sin sesión y `/modalidades/lucha-del-garrote` respondiendo 200.
+- Pendiente validación manual en Plesk con sesión real: crear modalidad de prueba, editar modalidad existente, subir foto principal y comprobar que se muestra en la ficha pública.
+
+2026-06-24 Executor:
+
+- Implementado el Paso 8: gestión simple de usuarias.
+- No requiere cambios de base de datos porque la tabla `users` existente ya incluye `role`, `username`, `email`, `password_hash`, `full_name`, `is_active` y `last_login_at`.
+- Añadidas rutas `GET /admin/users`, `GET /admin/users/new`, `POST /admin/users`, `GET /admin/users/{id}/edit` y `POST /admin/users/{id}`.
+- Añadido `Admin\UserController` con listado, crear, editar, activar/desactivar y cambio opcional de contraseña.
+- La creación y cambio de contraseña usan `password_hash`.
+- Validación server-side: usuario obligatorio y único, correo válido y único, contraseña mínima de 10 caracteres y confirmación.
+- La pantalla de usuarias queda limitada a `superadmin`; las usuarias `admin` activas siguen pudiendo gestionar contenido.
+- Protección añadida para que la superadmin actual no pueda desactivar ni degradar accidentalmente su propia cuenta desde el formulario.
+- La navegación admin ya enlaza a `Usuarios`.
+- Añadidas vistas `app/Views/admin/users/index.php` y `app/Views/admin/users/form.php`.
+- Añadidos estilos en `public/assets/css/styles.css` para ayuda de campos e interruptor de cuenta activa.
+- Verificación ejecutada: `php -l` en controlador/vistas/rutas/layout, `composer audit --no-dev`, `git diff --check` y rutas protegidas locales en `127.0.0.1:8770` redirigiendo a login sin sesión.
+- Pendiente validación manual en Plesk con sesión real superadmin: crear usuaria admin, editar sus datos, cambiar contraseña, desactivarla y confirmar que no puede acceder.
 
 ### Lessons
 

@@ -210,6 +210,7 @@ final class EntityRepository
         $entity['social_links'] = $this->socialLinksFor($pdo, $entityId);
         $entity['facilities'] = $this->facilitiesFor($pdo, $entityId);
         $entity['age_ranges'] = $this->ageRangesFor($pdo, $entityId);
+        $entity['media_files'] = $this->mediaFilesFor($pdo, $entityId);
 
         return $entity;
     }
@@ -294,6 +295,27 @@ final class EntityRepository
              ORDER BY sort_order ASC, id ASC'
         );
         $statement->execute(['id' => $entityId]);
+
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function mediaFilesFor(PDO $pdo, int $entityId): array
+    {
+        $statement = $pdo->prepare(
+            'SELECT media_type, file_path, alt_text, caption, sort_order
+             FROM media_files
+             WHERE owner_type = :owner_type
+               AND owner_id = :owner_id
+               AND media_type IN (\'entity_photo\', \'entity_featured_photo\')
+             ORDER BY media_type = \'entity_featured_photo\' DESC, sort_order ASC, id ASC'
+        );
+        $statement->execute([
+            'owner_type' => 'entity',
+            'owner_id' => $entityId,
+        ]);
 
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }

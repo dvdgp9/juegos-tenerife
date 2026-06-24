@@ -10,10 +10,10 @@ $activeNav = $activeNav ?? '';
 $adminNav = [
     ['href' => '/admin', 'label' => 'Panel', 'key' => 'dashboard'],
     ['href' => '/admin/entities', 'label' => 'Entidades', 'key' => 'entities'],
-    ['href' => null, 'label' => 'Instalaciones', 'key' => 'facilities'],
-    ['href' => null, 'label' => 'Modalidades', 'key' => 'modalities'],
+    ['href' => '/admin/facilities', 'label' => 'Instalaciones', 'key' => 'facilities'],
+    ['href' => '/admin/modalities', 'label' => 'Modalidades', 'key' => 'modalities'],
     ['href' => '/admin/import', 'label' => 'Importar Excel', 'key' => 'import'],
-    ['href' => null, 'label' => 'Usuarios', 'key' => 'users'],
+    ['href' => '/admin/users', 'label' => 'Usuarios', 'key' => 'users'],
 ];
 ?>
 <!doctype html>

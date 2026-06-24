@@ -9,7 +9,9 @@ use JuegosTenerife\Core\Database;
 use JuegosTenerife\Core\Response;
 use JuegosTenerife\Core\View;
 use JuegosTenerife\Models\EntityTypeRepository;
+use JuegosTenerife\Models\ModalityRepository;
 use JuegosTenerife\Models\MunicipalityRepository;
+use JuegosTenerife\Services\MediaUploadService;
 use JuegosTenerife\Services\Support\Slugger;
 use PDO;
 use RuntimeException;
@@ -72,6 +74,7 @@ final class EntityController extends AdminController
 
         try {
             $id = $this->saveEntity($entity, null);
+            $this->syncEntityMedia($id);
         } catch (RuntimeException $exception) {
             return $this->renderForm($entity, [$exception->getMessage()], 'Crear entidad', '/admin/entities');
         }
@@ -123,6 +126,7 @@ final class EntityController extends AdminController
 
         try {
             $this->saveEntity($entity, $entityId);
+            $this->syncEntityMedia($entityId);
         } catch (RuntimeException $exception) {
             return $this->renderForm($entity, [$exception->getMessage()], 'Editar entidad', '/admin/entities/' . $entityId);
         }
@@ -149,6 +153,8 @@ final class EntityController extends AdminController
             'action' => $action,
             'entityTypes' => (new EntityTypeRepository())->all(),
             'municipalities' => (new MunicipalityRepository())->allForAdmin(),
+            'modalities' => (new ModalityRepository())->all(),
+            'mediaFiles' => !empty($entity['id']) ? $this->mediaFilesForEntity((int) $entity['id']) : [],
         ]);
     }
 
@@ -201,7 +207,11 @@ final class EntityController extends AdminController
         $statement->execute(['id' => $id]);
         $entity = $statement->fetch(PDO::FETCH_ASSOC);
 
-        return is_array($entity) ? $entity : null;
+        if (!is_array($entity)) {
+            return null;
+        }
+
+        return $this->withRelations($entity);
     }
 
     /**
@@ -251,6 +261,21 @@ final class EntityController extends AdminController
             'supports_educational_needs' => '',
             'supports_disability' => '',
             'is_published' => 1,
+            'modality_ids' => [],
+            'phone_1' => '',
+            'phone_2' => '',
+            'email_1' => '',
+            'email_2' => '',
+            'contact_person' => '',
+            'contact_role' => '',
+            'contact_phone' => '',
+            'contact_email' => '',
+            'facebook_url' => '',
+            'instagram_url' => '',
+            'youtube_url' => '',
+            'x_url' => '',
+            'tiktok_url' => '',
+            'age_ranges' => $this->blankAgeRanges(),
         ];
     }
 
@@ -272,6 +297,14 @@ final class EntityController extends AdminController
 
         $entity['slug'] = Slugger::slug((string) ($entity['slug'] ?: $entity['name']));
         $entity['is_published'] = isset($_POST['is_published']) ? 1 : 0;
+        $entity['modality_ids'] = array_values(array_filter(array_map('intval', (array) ($_POST['modality_ids'] ?? []))));
+        $entity['age_ranges'] = [];
+        foreach ($this->ageRangeLabels() as $key => $label) {
+            $entity['age_ranges'][$key] = [
+                'label' => $label,
+                'raw_value' => trim((string) ($_POST['age_ranges'][$key] ?? '')),
+            ];
+        }
 
         return $entity;
     }
@@ -392,6 +425,7 @@ final class EntityController extends AdminController
                 $statement->execute($data);
             }
 
+            $this->replaceEntityRelations($pdo, $entityId, $entity);
             $pdo->commit();
 
             return $entityId;
@@ -399,6 +433,361 @@ final class EntityController extends AdminController
             $pdo->rollBack();
             throw new RuntimeException('No se pudo guardar la entidad: ' . $throwable->getMessage(), 0, $throwable);
         }
+    }
+
+    /**
+     * @param array<string, mixed> $entity
+     * @return array<string, mixed>
+     */
+    private function withRelations(array $entity): array
+    {
+        $pdo = Database::connection();
+        $entityId = (int) $entity['id'];
+
+        $statement = $pdo->prepare('SELECT modality_id FROM entity_modalities WHERE entity_id = :id ORDER BY sort_order ASC');
+        $statement->execute(['id' => $entityId]);
+        $entity['modality_ids'] = array_map('intval', $statement->fetchAll(PDO::FETCH_COLUMN));
+
+        $statement = $pdo->prepare(
+            'SELECT contact_type, label, person_name, role_title, phone, email, value
+             FROM entity_contacts
+             WHERE entity_id = :id
+             ORDER BY sort_order ASC, id ASC'
+        );
+        $statement->execute(['id' => $entityId]);
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $contact) {
+            $label = (string) ($contact['label'] ?? '');
+            if ($contact['contact_type'] === 'phone' && $label === 'Teléfono1') {
+                $entity['phone_1'] = $contact['phone'] ?? $contact['value'] ?? '';
+            }
+            if ($contact['contact_type'] === 'phone' && $label === 'Teléfono2') {
+                $entity['phone_2'] = $contact['phone'] ?? $contact['value'] ?? '';
+            }
+            if ($contact['contact_type'] === 'email' && $label === 'Email1') {
+                $entity['email_1'] = $contact['email'] ?? $contact['value'] ?? '';
+            }
+            if ($contact['contact_type'] === 'email' && $label === 'Email2') {
+                $entity['email_2'] = $contact['email'] ?? $contact['value'] ?? '';
+            }
+            if ($contact['contact_type'] === 'person') {
+                $entity['contact_person'] = $contact['person_name'] ?? '';
+                $entity['contact_role'] = $contact['role_title'] ?? '';
+                $entity['contact_phone'] = $contact['phone'] ?? '';
+                $entity['contact_email'] = $contact['email'] ?? '';
+            }
+        }
+
+        $statement = $pdo->prepare('SELECT platform, url FROM entity_social_links WHERE entity_id = :id');
+        $statement->execute(['id' => $entityId]);
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $link) {
+            $entity[(string) $link['platform'] . '_url'] = $link['url'] ?? '';
+        }
+
+        $statement = $pdo->prepare(
+            'SELECT age_range_key, label, raw_value
+             FROM entity_age_ranges
+             WHERE entity_id = :id
+             ORDER BY sort_order ASC, id ASC'
+        );
+        $statement->execute(['id' => $entityId]);
+        $ageRanges = $this->blankAgeRanges();
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $range) {
+            $key = (string) $range['age_range_key'];
+            if (!isset($ageRanges[$key])) {
+                continue;
+            }
+            $ageRanges[$key]['raw_value'] = (string) ($range['raw_value'] ?? '');
+        }
+        $entity['age_ranges'] = $ageRanges;
+
+        return array_merge($this->blankEntity(), $entity);
+    }
+
+    /**
+     * @param array<string, mixed> $entity
+     */
+    private function replaceEntityRelations(PDO $pdo, int $entityId, array $entity): void
+    {
+        $pdo->prepare('DELETE FROM entity_modalities WHERE entity_id = :id')->execute(['id' => $entityId]);
+        $insertModality = $pdo->prepare('INSERT INTO entity_modalities (entity_id, modality_id, sort_order) VALUES (:entity_id, :modality_id, :sort_order)');
+        foreach (array_values(array_unique(array_map('intval', (array) ($entity['modality_ids'] ?? [])))) as $index => $modalityId) {
+            if ($modalityId <= 0) {
+                continue;
+            }
+            $insertModality->execute([
+                'entity_id' => $entityId,
+                'modality_id' => $modalityId,
+                'sort_order' => ($index + 1) * 10,
+            ]);
+        }
+
+        $pdo->prepare('DELETE FROM entity_contacts WHERE entity_id = :id')->execute(['id' => $entityId]);
+        $insertContact = $pdo->prepare(
+            'INSERT INTO entity_contacts (entity_id, contact_type, label, person_name, role_title, phone, email, value, is_primary, sort_order)
+             VALUES (:entity_id, :contact_type, :label, :person_name, :role_title, :phone, :email, :value, :is_primary, :sort_order)'
+        );
+        $contactRows = [
+            ['phone', 'Teléfono1', null, null, $this->nullable($entity['phone_1'] ?? null), null, $this->nullable($entity['phone_1'] ?? null), 1, 10],
+            ['phone', 'Teléfono2', null, null, $this->nullable($entity['phone_2'] ?? null), null, $this->nullable($entity['phone_2'] ?? null), 0, 20],
+            ['email', 'Email1', null, null, null, $this->nullable($entity['email_1'] ?? null), $this->nullable($entity['email_1'] ?? null), 1, 30],
+            ['email', 'Email2', null, null, null, $this->nullable($entity['email_2'] ?? null), $this->nullable($entity['email_2'] ?? null), 0, 40],
+        ];
+        foreach ($contactRows as [$type, $label, $person, $role, $phone, $email, $value, $primary, $sort]) {
+            if ($value === null) {
+                continue;
+            }
+            $insertContact->execute(['entity_id' => $entityId, 'contact_type' => $type, 'label' => $label, 'person_name' => $person, 'role_title' => $role, 'phone' => $phone, 'email' => $email, 'value' => $value, 'is_primary' => $primary, 'sort_order' => $sort]);
+        }
+
+        if ($this->nullable($entity['contact_person'] ?? null) !== null) {
+            $insertContact->execute([
+                'entity_id' => $entityId,
+                'contact_type' => 'person',
+                'label' => 'Persona de contacto',
+                'person_name' => $this->nullable($entity['contact_person'] ?? null),
+                'role_title' => $this->nullable($entity['contact_role'] ?? null),
+                'phone' => $this->nullable($entity['contact_phone'] ?? null),
+                'email' => $this->nullable($entity['contact_email'] ?? null),
+                'value' => $this->nullable($entity['contact_person'] ?? null),
+                'is_primary' => 1,
+                'sort_order' => 50,
+            ]);
+        }
+
+        $pdo->prepare('DELETE FROM entity_social_links WHERE entity_id = :id')->execute(['id' => $entityId]);
+        $insertSocial = $pdo->prepare('INSERT INTO entity_social_links (entity_id, platform, label, url, sort_order) VALUES (:entity_id, :platform, :label, :url, :sort_order)');
+        $socials = [
+            'facebook' => ['Facebook', 'facebook_url'],
+            'instagram' => ['Instagram', 'instagram_url'],
+            'youtube' => ['YouTube', 'youtube_url'],
+            'x' => ['X', 'x_url'],
+            'tiktok' => ['TikTok', 'tiktok_url'],
+        ];
+        $sort = 10;
+        foreach ($socials as $platform => [$label, $field]) {
+            $url = $this->nullable($entity[$field] ?? null);
+            if ($url === null) {
+                continue;
+            }
+            $insertSocial->execute(['entity_id' => $entityId, 'platform' => $platform, 'label' => $label, 'url' => $url, 'sort_order' => $sort]);
+            $sort += 10;
+        }
+
+        $pdo->prepare('DELETE FROM entity_age_ranges WHERE entity_id = :id')->execute(['id' => $entityId]);
+        $insertAgeRange = $pdo->prepare(
+            'INSERT INTO entity_age_ranges (entity_id, age_range_key, label, practitioners_count, raw_value, sort_order)
+             VALUES (:entity_id, :age_range_key, :label, :practitioners_count, :raw_value, :sort_order)'
+        );
+        $sort = 10;
+        foreach ($this->ageRangeLabels() as $key => $label) {
+            $rawValue = trim((string) (($entity['age_ranges'][$key]['raw_value'] ?? $entity['age_ranges'][$key] ?? '')));
+            if ($rawValue === '') {
+                continue;
+            }
+            $insertAgeRange->execute([
+                'entity_id' => $entityId,
+                'age_range_key' => $key,
+                'label' => $label,
+                'practitioners_count' => $this->intFromText($rawValue),
+                'raw_value' => $rawValue,
+                'sort_order' => $sort,
+            ]);
+            $sort += 10;
+        }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function ageRangeLabels(): array
+    {
+        return [
+            'age_0_5' => 'Edades: De 0 a 5 años',
+            'age_6_11' => 'Edades: De 6 a 11 años',
+            'age_12_17' => 'Edades: De 12 a 17 años',
+            'age_18_29' => 'Edades: De 18 a 29 años',
+            'age_30_45' => 'Edades: De 30 a 45 años',
+            'age_46_59' => 'Edades: De 46 a 59 años',
+            'age_60_plus' => 'Edades: 60 años y más',
+        ];
+    }
+
+    /**
+     * @return array<string, array{label: string, raw_value: string}>
+     */
+    private function blankAgeRanges(): array
+    {
+        $ranges = [];
+        foreach ($this->ageRangeLabels() as $key => $label) {
+            $ranges[$key] = [
+                'label' => $label,
+                'raw_value' => '',
+            ];
+        }
+
+        return $ranges;
+    }
+
+    private function intFromText(string $value): ?int
+    {
+        if (preg_match('/\d+/', $value, $matches) !== 1) {
+            return null;
+        }
+
+        return (int) $matches[0];
+    }
+
+    private function syncEntityMedia(int $entityId): void
+    {
+        $this->updateExistingMedia($entityId);
+        $this->storeLogoUpload($entityId);
+        $this->storeGalleryUploads($entityId);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function mediaFilesForEntity(int $entityId): array
+    {
+        $statement = Database::connection()->prepare(
+            'SELECT id, media_type, original_name, file_path, mime_type, file_size, alt_text, caption, sort_order
+             FROM media_files
+             WHERE owner_type = :owner_type
+               AND owner_id = :owner_id
+             ORDER BY media_type = \'entity_featured_photo\' DESC, sort_order ASC, id ASC'
+        );
+        $statement->execute([
+            'owner_type' => 'entity',
+            'owner_id' => $entityId,
+        ]);
+
+        return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    private function updateExistingMedia(int $entityId): void
+    {
+        $mediaInput = is_array($_POST['media'] ?? null) ? $_POST['media'] : [];
+        $deleteIds = array_map('intval', (array) ($_POST['delete_media_ids'] ?? []));
+        $featuredId = (int) ($_POST['featured_media_id'] ?? 0);
+
+        $pdo = Database::connection();
+        $pdo->beginTransaction();
+
+        try {
+            foreach ($deleteIds as $deleteId) {
+                $statement = $pdo->prepare('DELETE FROM media_files WHERE id = :id AND owner_type = \'entity\' AND owner_id = :owner_id');
+                $statement->execute(['id' => $deleteId, 'owner_id' => $entityId]);
+            }
+
+            if ($mediaInput !== []) {
+                $statement = $pdo->prepare(
+                    'UPDATE media_files
+                     SET alt_text = :alt_text,
+                         caption = :caption,
+                         sort_order = :sort_order
+                     WHERE id = :id
+                       AND owner_type = \'entity\'
+                       AND owner_id = :owner_id'
+                );
+                foreach ($mediaInput as $id => $data) {
+                    if (!is_array($data)) {
+                        continue;
+                    }
+                    $statement->execute([
+                        'alt_text' => $this->nullable($data['alt_text'] ?? null),
+                        'caption' => $this->nullable($data['caption'] ?? null),
+                        'sort_order' => $this->intOrNull($data['sort_order'] ?? null) ?? 100,
+                        'id' => (int) $id,
+                        'owner_id' => $entityId,
+                    ]);
+                }
+            }
+
+            $pdo->prepare('UPDATE media_files SET media_type = \'entity_photo\' WHERE owner_type = \'entity\' AND owner_id = :owner_id AND media_type = \'entity_featured_photo\'')->execute(['owner_id' => $entityId]);
+            if ($featuredId > 0 && !in_array($featuredId, $deleteIds, true)) {
+                $statement = $pdo->prepare('UPDATE media_files SET media_type = \'entity_featured_photo\' WHERE id = :id AND owner_type = \'entity\' AND owner_id = :owner_id');
+                $statement->execute(['id' => $featuredId, 'owner_id' => $entityId]);
+            }
+
+            $pdo->commit();
+        } catch (\Throwable $throwable) {
+            $pdo->rollBack();
+            throw new RuntimeException('No se pudieron guardar las fotos existentes: ' . $throwable->getMessage(), 0, $throwable);
+        }
+    }
+
+    private function storeLogoUpload(int $entityId): void
+    {
+        if (!isset($_FILES['logo']) || !is_array($_FILES['logo']) || (int) ($_FILES['logo']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            return;
+        }
+
+        $uploaded = (new MediaUploadService())->storeImage($_FILES['logo'], 'entities/' . $entityId);
+        $statement = Database::connection()->prepare('UPDATE entities SET logo_path = :logo_path WHERE id = :id');
+        $statement->execute([
+            'logo_path' => $uploaded['file_path'],
+            'id' => $entityId,
+        ]);
+    }
+
+    private function storeGalleryUploads(int $entityId): void
+    {
+        if (!isset($_FILES['gallery_images']) || !is_array($_FILES['gallery_images'])) {
+            return;
+        }
+
+        $files = $this->normalizeMultipleUpload($_FILES['gallery_images']);
+        if ($files === []) {
+            return;
+        }
+
+        $upload = new MediaUploadService();
+        $pdo = Database::connection();
+        $statement = $pdo->prepare(
+            'INSERT INTO media_files (owner_type, owner_id, media_type, original_name, file_path, mime_type, file_size, alt_text, caption, sort_order)
+             VALUES (:owner_type, :owner_id, :media_type, :original_name, :file_path, :mime_type, :file_size, :alt_text, :caption, :sort_order)'
+        );
+
+        foreach ($files as $file) {
+            if ((int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+                continue;
+            }
+            $uploaded = $upload->storeImage($file, 'entities/' . $entityId);
+            $statement->execute([
+                'owner_type' => 'entity',
+                'owner_id' => $entityId,
+                'media_type' => 'entity_photo',
+                'original_name' => $uploaded['original_name'],
+                'file_path' => $uploaded['file_path'],
+                'mime_type' => $uploaded['mime_type'],
+                'file_size' => $uploaded['file_size'],
+                'alt_text' => null,
+                'caption' => null,
+                'sort_order' => 100,
+            ]);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $files
+     * @return list<array<string, mixed>>
+     */
+    private function normalizeMultipleUpload(array $files): array
+    {
+        $names = (array) ($files['name'] ?? []);
+        $normalized = [];
+
+        foreach ($names as $index => $name) {
+            $normalized[] = [
+                'name' => $name,
+                'type' => $files['type'][$index] ?? null,
+                'tmp_name' => $files['tmp_name'][$index] ?? null,
+                'error' => $files['error'][$index] ?? UPLOAD_ERR_NO_FILE,
+                'size' => $files['size'][$index] ?? 0,
+            ];
+        }
+
+        return $normalized;
     }
 
     /**

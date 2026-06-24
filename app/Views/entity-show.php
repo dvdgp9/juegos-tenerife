@@ -9,6 +9,7 @@ $contacts = $entity['contacts'] ?? [];
 $socialLinks = $entity['social_links'] ?? [];
 $facilities = $entity['facilities'] ?? [];
 $ageRanges = $entity['age_ranges'] ?? [];
+$mediaFiles = $entity['media_files'] ?? [];
 
 $modalityIcons = [];
 foreach ($modalities as $m) {
@@ -282,6 +283,22 @@ $protocolLabel = static function (?string $status): string {
                                 <li><?= htmlspecialchars((string) $age['label'], ENT_QUOTES, 'UTF-8') ?>: <?= htmlspecialchars((string) ($age['raw_value'] ?? $age['practitioners_count'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></li>
                             <?php endforeach; ?>
                         </ul>
+                    </section>
+                <?php endif; ?>
+
+                <?php if ($mediaFiles !== []): ?>
+                    <section class="detail-section">
+                        <p class="eyebrow">Galería</p>
+                        <div class="entity-gallery">
+                            <?php foreach ($mediaFiles as $index => $media): ?>
+                                <figure class="<?= $index === 0 ? 'featured' : '' ?>">
+                                    <img src="<?= htmlspecialchars((string) $media['file_path'], ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars((string) ($media['alt_text'] ?: $media['caption'] ?: $entity['name']), ENT_QUOTES, 'UTF-8') ?>">
+                                    <?php if (!empty($media['caption'])): ?>
+                                        <figcaption><?= htmlspecialchars((string) $media['caption'], ENT_QUOTES, 'UTF-8') ?></figcaption>
+                                    <?php endif; ?>
+                                </figure>
+                            <?php endforeach; ?>
+                        </div>
                     </section>
                 <?php endif; ?>
 

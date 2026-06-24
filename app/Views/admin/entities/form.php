@@ -4,16 +4,21 @@
 /** @var string $action */
 /** @var list<array<string,mixed>> $entityTypes */
 /** @var list<array<string,mixed>> $municipalities */
+/** @var list<array<string,mixed>> $modalities */
+/** @var list<array<string,mixed>> $mediaFiles */
 $entity = $entity ?? [];
 $errors = $errors ?? [];
 $entityTypes = $entityTypes ?? [];
 $municipalities = $municipalities ?? [];
+$modalities = $modalities ?? [];
+$mediaFiles = $mediaFiles ?? [];
 
 $h = static fn(mixed $value): string => htmlspecialchars((string) ($value ?? ''), ENT_QUOTES, 'UTF-8');
 $value = static fn(string $key): string => htmlspecialchars((string) ($entity[$key] ?? ''), ENT_QUOTES, 'UTF-8');
 $selected = static fn(string $key, mixed $candidate): string => (string) ($entity[$key] ?? '') === (string) $candidate ? ' selected' : '';
 $checked = static fn(string $key): string => ((int) ($entity[$key] ?? 0)) === 1 ? ' checked' : '';
 $triSelected = static fn(string $key, string $candidate): string => (string) ($entity[$key] ?? '') === $candidate ? ' selected' : '';
+$checkedModality = static fn(mixed $id): string => in_array((int) $id, array_map('intval', (array) ($entity['modality_ids'] ?? [])), true) ? ' checked' : '';
 
 require dirname(__DIR__) . '/partials/layout-start.php';
 ?>
@@ -43,14 +48,19 @@ require dirname(__DIR__) . '/partials/layout-start.php';
     </div>
 <?php endif; ?>
 
-<form class="admin-entity-form" action="<?= $h($action) ?>" method="post">
+<form class="admin-entity-form" action="<?= $h($action) ?>" method="post" enctype="multipart/form-data">
     <input type="hidden" name="_csrf" value="<?= $h($csrf ?? '') ?>">
 
     <aside class="admin-form-rail" aria-label="Secciones de la entidad">
         <a href="#identidad">Identidad</a>
+        <a href="#modalidades">Modalidades</a>
+        <a href="#contacto">Contacto</a>
+        <a href="#redes">Redes</a>
+        <a href="#fotos">Fotos</a>
         <a href="#ubicacion">Ubicación</a>
         <a href="#contenido">Contenido</a>
         <a href="#actividad">Actividad</a>
+        <a href="#edades">Edades</a>
         <a href="#gestion">Gestión</a>
     </aside>
 
@@ -101,10 +111,181 @@ require dirname(__DIR__) . '/partials/layout-start.php';
             </div>
         </section>
 
-        <section id="ubicacion" class="admin-form-section">
+        <section id="modalidades" class="admin-form-section">
             <div class="admin-form-section-head">
                 <div>
                     <p class="eyebrow">02</p>
+                    <h2>Modalidades</h2>
+                </div>
+            </div>
+
+            <?php if ($modalities === []): ?>
+                <div class="empty-state">
+                    <strong>No hay modalidades cargadas.</strong>
+                    <span>Se crearán al importar Excel o cuando esté activo el CRUD de modalidades.</span>
+                </div>
+            <?php else: ?>
+                <div class="admin-check-grid">
+                    <?php foreach ($modalities as $modality): ?>
+                        <label>
+                            <input name="modality_ids[]" type="checkbox" value="<?= (int) $modality['id'] ?>"<?= $checkedModality($modality['id']) ?>>
+                            <span><?= $h($modality['name']) ?></span>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </section>
+
+        <section id="contacto" class="admin-form-section">
+            <div class="admin-form-section-head">
+                <div>
+                    <p class="eyebrow">03</p>
+                    <h2>Contacto público</h2>
+                </div>
+            </div>
+
+            <div class="form-grid two">
+                <div class="field">
+                    <label for="phone_1">Teléfono principal</label>
+                    <input id="phone_1" name="phone_1" type="text" value="<?= $value('phone_1') ?>">
+                </div>
+                <div class="field">
+                    <label for="phone_2">Teléfono secundario</label>
+                    <input id="phone_2" name="phone_2" type="text" value="<?= $value('phone_2') ?>">
+                </div>
+                <div class="field">
+                    <label for="email_1">Email principal</label>
+                    <input id="email_1" name="email_1" type="email" value="<?= $value('email_1') ?>">
+                </div>
+                <div class="field">
+                    <label for="email_2">Email secundario</label>
+                    <input id="email_2" name="email_2" type="email" value="<?= $value('email_2') ?>">
+                </div>
+                <div class="field">
+                    <label for="contact_person">Persona de contacto</label>
+                    <input id="contact_person" name="contact_person" type="text" value="<?= $value('contact_person') ?>">
+                </div>
+                <div class="field">
+                    <label for="contact_role">Cargo</label>
+                    <input id="contact_role" name="contact_role" type="text" value="<?= $value('contact_role') ?>">
+                </div>
+                <div class="field">
+                    <label for="contact_phone">Teléfono contacto</label>
+                    <input id="contact_phone" name="contact_phone" type="text" value="<?= $value('contact_phone') ?>">
+                </div>
+                <div class="field">
+                    <label for="contact_email">Email contacto</label>
+                    <input id="contact_email" name="contact_email" type="email" value="<?= $value('contact_email') ?>">
+                </div>
+            </div>
+        </section>
+
+        <section id="redes" class="admin-form-section">
+            <div class="admin-form-section-head">
+                <div>
+                    <p class="eyebrow">04</p>
+                    <h2>Web y redes sociales</h2>
+                </div>
+            </div>
+
+            <div class="form-grid two">
+                <div class="field wide">
+                    <label for="website_url">Web</label>
+                    <input id="website_url" name="website_url" type="url" value="<?= $value('website_url') ?>">
+                </div>
+                <div class="field">
+                    <label for="facebook_url">Facebook</label>
+                    <input id="facebook_url" name="facebook_url" type="url" value="<?= $value('facebook_url') ?>">
+                </div>
+                <div class="field">
+                    <label for="instagram_url">Instagram</label>
+                    <input id="instagram_url" name="instagram_url" type="url" value="<?= $value('instagram_url') ?>">
+                </div>
+                <div class="field">
+                    <label for="youtube_url">YouTube</label>
+                    <input id="youtube_url" name="youtube_url" type="url" value="<?= $value('youtube_url') ?>">
+                </div>
+                <div class="field">
+                    <label for="x_url">X</label>
+                    <input id="x_url" name="x_url" type="url" value="<?= $value('x_url') ?>">
+                </div>
+                <div class="field">
+                    <label for="tiktok_url">TikTok</label>
+                    <input id="tiktok_url" name="tiktok_url" type="url" value="<?= $value('tiktok_url') ?>">
+                </div>
+            </div>
+        </section>
+
+        <section id="fotos" class="admin-form-section">
+            <div class="admin-form-section-head">
+                <div>
+                    <p class="eyebrow">05</p>
+                    <h2>Fotos de la entidad</h2>
+                </div>
+            </div>
+
+            <div class="form-grid two">
+                <div class="field">
+                    <label for="logo">Logo de la entidad</label>
+                    <input id="logo" name="logo" type="file" accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif">
+                    <small>Opcional. JPG, PNG, WEBP o GIF. Máximo 8 MB.</small>
+                    <?php if (!empty($entity['logo_path'])): ?>
+                        <div class="admin-current-media">
+                            <img src="<?= $h($entity['logo_path']) ?>" alt="">
+                            <span>Logo actual</span>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <div class="field">
+                    <label for="gallery_images">Añadir fotos a la galería</label>
+                    <input id="gallery_images" name="gallery_images[]" type="file" multiple accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif">
+                    <small>Puedes seleccionar varias imágenes. Se añadirán a la galería pública.</small>
+                </div>
+            </div>
+
+            <?php if ($mediaFiles === []): ?>
+                <div class="empty-state">
+                    <strong>Sin fotos de galería todavía.</strong>
+                    <span>Sube imágenes para mostrarlas en la ficha pública.</span>
+                </div>
+            <?php else: ?>
+                <div class="admin-media-grid">
+                    <?php foreach ($mediaFiles as $media): ?>
+                        <?php $isFeatured = (string) ($media['media_type'] ?? '') === 'entity_featured_photo'; ?>
+                        <article>
+                            <img src="<?= $h($media['file_path']) ?>" alt="">
+                            <div class="admin-media-fields">
+                                <label>
+                                    <span>Destacada</span>
+                                    <input name="featured_media_id" type="radio" value="<?= (int) $media['id'] ?>"<?= $isFeatured ? ' checked' : '' ?>>
+                                </label>
+                                <label>
+                                    <span>Orden</span>
+                                    <input name="media[<?= (int) $media['id'] ?>][sort_order]" type="number" min="0" value="<?= (int) ($media['sort_order'] ?? 100) ?>">
+                                </label>
+                                <label>
+                                    <span>Título</span>
+                                    <input name="media[<?= (int) $media['id'] ?>][caption]" type="text" value="<?= $h($media['caption'] ?? '') ?>">
+                                </label>
+                                <label>
+                                    <span>Texto alternativo</span>
+                                    <input name="media[<?= (int) $media['id'] ?>][alt_text]" type="text" value="<?= $h($media['alt_text'] ?? '') ?>">
+                                </label>
+                                <label class="admin-delete-check">
+                                    <input name="delete_media_ids[]" type="checkbox" value="<?= (int) $media['id'] ?>">
+                                    <span>Eliminar</span>
+                                </label>
+                            </div>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </section>
+
+        <section id="ubicacion" class="admin-form-section">
+            <div class="admin-form-section-head">
+                <div>
+                    <p class="eyebrow">07</p>
                     <h2>Dirección y mapa</h2>
                 </div>
             </div>
@@ -142,17 +323,13 @@ require dirname(__DIR__) . '/partials/layout-start.php';
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="field">
-                    <label for="website_url">Web</label>
-                    <input id="website_url" name="website_url" type="url" value="<?= $value('website_url') ?>">
-                </div>
             </div>
         </section>
 
         <section id="contenido" class="admin-form-section">
             <div class="admin-form-section-head">
                 <div>
-                    <p class="eyebrow">03</p>
+                    <p class="eyebrow">06</p>
                     <h2>Contenido público</h2>
                 </div>
             </div>
@@ -176,7 +353,7 @@ require dirname(__DIR__) . '/partials/layout-start.php';
         <section id="actividad" class="admin-form-section">
             <div class="admin-form-section-head">
                 <div>
-                    <p class="eyebrow">04</p>
+                    <p class="eyebrow">08</p>
                     <h2>Actividad deportiva</h2>
                 </div>
             </div>
@@ -221,10 +398,28 @@ require dirname(__DIR__) . '/partials/layout-start.php';
             </div>
         </section>
 
+        <section id="edades" class="admin-form-section">
+            <div class="admin-form-section-head">
+                <div>
+                    <p class="eyebrow">09</p>
+                    <h2>Tramos de edad</h2>
+                </div>
+            </div>
+
+            <div class="form-grid age-ranges-grid">
+                <?php foreach (($entity['age_ranges'] ?? []) as $key => $range): ?>
+                    <div class="field">
+                        <label for="age_<?= $h($key) ?>"><?= $h($range['label'] ?? $key) ?></label>
+                        <input id="age_<?= $h($key) ?>" name="age_ranges[<?= $h($key) ?>]" type="text" inputmode="numeric" value="<?= $h($range['raw_value'] ?? '') ?>">
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </section>
+
         <section id="gestion" class="admin-form-section">
             <div class="admin-form-section-head">
                 <div>
-                    <p class="eyebrow">05</p>
+                    <p class="eyebrow">10</p>
                     <h2>Gestión, socios y protocolos</h2>
                 </div>
             </div>
