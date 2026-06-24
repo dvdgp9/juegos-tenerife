@@ -168,6 +168,15 @@ Success criteria:
 
 ## Current Status / Progress Tracking
 
+Executor activo para cambios solicitados por cliente el 2026-06-24.
+
+Hito completado:
+
+- Sustituir foto principal de cabecera por imagen de modalidad de lucha del garrote.
+- Corregir etiquetas y valores públicos del cuadro "Información Complementaria" en ficha.
+- Mostrar diferenciación de miembros de la directiva por género si existen datos importados.
+- No implementar cambios para fotos de la entidad; solo responder criterio de ubicación al usuario.
+
 Executor activo. El usuario autorizó avanzar y evaluar continuamente.
 
 Tarea 1 completada: se creó la arquitectura base PHP vanilla:
@@ -286,6 +295,12 @@ Corrección despliegue MariaDB (Plesk):
 - Verificación local: `php -l app/Services/Import/EntityImportService.php` sin errores.
 
 ## Executor's Feedback or Assistance Requests
+
+2026-06-24:
+
+- Se entiende el pedido de cabecera e información complementaria y se está ejecutando como cambio acotado de vistas/CSS.
+- La pregunta "¿dónde irían en la ficha las fotos de la entidad?" se responde sin implementar: lo lógico es una sección "Fotos de la entidad" o "Galería" dentro de la ficha, separada de información complementaria, después de los datos principales y antes de bloques administrativos/documentales.
+- Verificación técnica: `php -l app/Views/entity-show.php` sin errores; `composer audit` sin vulnerabilidades; imagen `public/assets/images/modalidades/lucha-del-garrote.jpg` existente.
 
 Tareas 1 a 4 implementadas y verificadas técnicamente por Executor. Pendiente de revisión visual/manual del usuario cuando quiera.
 
@@ -572,3 +587,175 @@ Las seis tarjetas de modalidades principales de la portada deben enlazar a pági
 - Tras la validación, el usuario pidió volver a mostrar los botones. Los enlaces de las tarjetas se controlan con `$showModalityDetailLinks = true` en `home.php`; las fichas permanecen implementadas y enlazadas desde inicio.
 - Executor revisó el Excel definitivo: hoja `ENTIDADES`, 41 filas con datos y 69 columnas. Cambios principales frente a la muestra: `Tipo Entidad` pasa a `Tipo Entidad1` + `Tipo Entidad2`; los teléfonos de contacto siguen como cabeceras duplicadas; muchas instalaciones no traen municipio explícito y deben heredar el municipio de la entidad.
 - Ajuste implementado: `ExcelPreviewService` acepta `Tipo Entidad1`, mantiene compatibilidad con `Tipo Entidad`, crea aliases internos para teléfonos de contacto y normaliza `La Laguna`; `EntityImportService` usa `Tipo Entidad1` como tipo principal, conserva `Tipo Entidad2` en raw data, normaliza municipios y parsea instalaciones heredando el municipio de la entidad salvo prefijo de municipio conocido. Verificaciones: `php -l`, preview del Excel definitivo, prueba de aliases, prueba de instalaciones y `composer audit --no-dev` correctos.
+
+---
+
+## 2026-06-23 — Planner: backend editable para trabajadoras
+
+### Background and Motivation
+
+El frontend público está prácticamente cerrado y la plataforma ya cuenta con base PHP vanilla + MySQL, login admin, dashboard, importador Excel, listado admin de entidades y modelo relacional amplio. La siguiente fase debe convertir el área privada en una herramienta de gestión real para personal interno no técnico.
+
+Decisiones confirmadas por el usuario:
+
+- La importación Excel posterior a la carga inicial debe servir solo para **añadir** registros nuevos. Si una fila corresponde a una entidad ya existente, se debe marcar como repetida, no cargarla y no modificar ningún dato existente.
+- Las trabajadoras deben poder editar lo máximo posible en cada entidad/instalación para evitar depender de soporte técnico.
+- Las modalidades deben permitir subir/gestionar fotografía principal similar al patrón público revisado en `https://www.deportesyjuegostradicionalescanarios.es/`: página de modalidad con imagen protagonista y contenido editorial.
+- Todas las usuarias internas tendrán el mismo permiso funcional en esta fase. No hace falta un sistema fino de permisos.
+- El despliegue es en Plesk y hay control sobre límites de subida.
+
+### Key Challenges and Analysis
+
+1. **No crear backend nuevo.** Ya existe estructura PHP vanilla coherente con Plesk. La solución debe completar el admin existente con formularios server-side, CSRF, sesiones, PDO y transacciones.
+
+2. **Regla crítica de importación.** El importador actual usa `ON DUPLICATE KEY UPDATE` en `entities` y reemplaza relaciones hijas. Eso contradice la decisión actual. Hay que cambiarlo a modo append-only:
+   - Si la entidad ya existe por slug/nombre normalizado, registrar fila como `duplicate`.
+   - No tocar `entities` ni tablas hijas para duplicados.
+   - Mostrar resumen claro: creadas, repetidas, omitidas y errores.
+   - Mantener raw data en `import_rows` para depuración.
+
+3. **Edición amplia sin sobrecomplicar UX.** La ficha admin de entidad debe dividirse en secciones manejables:
+   - Identidad y publicación.
+   - Dirección y ubicación.
+   - Datos públicos y contenido descriptivo.
+   - Modalidades.
+   - Contactos.
+   - Redes.
+   - Instalaciones.
+   - Métricas, edades y protocolos.
+   - Fotos/logo.
+
+4. **Guardar entidades con seguridad.** Una edición de entidad toca muchas tablas. Cada guardado debe ir en transacción y, si falla, no debe dejar relaciones a medias.
+
+5. **Instalaciones muy editables.** Las instalaciones no deben ser solo texto importado. Deben poder editar nombre, municipio, dirección, localidad, código postal, enlace Maps, latitud, longitud, notas y relación con una o varias entidades.
+
+6. **Fotos y uploads.** Deben validarse tipo MIME, extensión y tamaño. En Plesk se puede subir el límite, pero el código debe seguir rechazando archivos peligrosos. Los assets subidos no deben permitir ejecutar PHP.
+
+7. **Modalidades: BDD vs contenido PHP.** Hoy las fichas editoriales viven en `app/Content/ModalityContent.php`, mientras el listado/filtros usan `modalities` en BDD. Para edición interna real conviene mover gradualmente lo editable a BDD: imagen principal, texto corto, texto largo/secciones y estado destacado. Para no romper lo ya publicado, se puede hacer por fases.
+
+8. **Permisos simples.** Aunque exista `role`, en esta fase todas las usuarias internas pueden gestionar contenido. Mantener `superadmin` solo para crear/desactivar usuarias si se implementa gestión de usuarios.
+
+9. **Auditoría.** Como varias personas tocarán datos, conviene registrar creación, edición, publicación/despublicación, importación, duplicados detectados y subidas de archivos en `audit_logs`.
+
+### High-level Task Breakdown
+
+#### Paso 1 — Ajustar importador a modo solo altas
+
+Success criteria:
+- El importador detecta entidades existentes antes de insertar.
+- Una fila duplicada queda registrada como `duplicate` o estado equivalente documentado.
+- Las filas duplicadas no modifican `entities`, contactos, redes, instalaciones, modalidades ni tramos de edad.
+- La pantalla de importación muestra contador de repetidas.
+- Se documenta la regla en `docs/excel-field-mapping.md` o documentación de importación.
+- Verificación con Excel de prueba que contenga una entidad existente y una nueva: la existente se marca repetida y la nueva se crea.
+
+#### Paso 2 — Base común del admin
+
+Success criteria:
+- Layout admin común reutilizable para dashboard, listado, formularios e importación.
+- Helper/método común para exigir sesión admin y evitar repetir lógica en cada controlador.
+- Flash messages de éxito/error tras POST.
+- Navegación admin limpia: Panel, Entidades, Instalaciones, Modalidades, Importar Excel, Usuarios.
+- `php -l` limpio y sin estilos inline; todo CSS en `public/assets/css/styles.css`.
+
+#### Paso 3 — CRUD de entidades: formulario principal
+
+Success criteria:
+- Rutas admin para crear, editar, guardar y publicar/despublicar entidades.
+- Edición de campos principales de `entities`: nombre, slug controlado, tipo, municipio, dirección, localidad, CP, web, publicación, historia, principios, valores, entrenamientos, equipos, deportistas, directiva, socios, protocolos y apoyos.
+- Validación server-side con mensajes útiles.
+- Guardado en transacción.
+- Enlace desde listado admin a editar y a ficha pública.
+- Una entidad editada se refleja correctamente en `/entidades/{slug}`.
+
+#### Paso 4 — CRUD de relaciones de entidad
+
+Success criteria:
+- En la edición de entidad se pueden gestionar modalidades asociadas.
+- Se pueden gestionar teléfonos, emails y persona de contacto.
+- Se pueden gestionar redes sociales.
+- Se pueden gestionar tramos de edad/practicantes.
+- Se pueden añadir, editar, ordenar y eliminar relaciones sin borrar accidentalmente datos no enviados.
+- Cada guardado registra auditoría básica.
+
+#### Paso 5 — Gestión completa de instalaciones
+
+Success criteria:
+- Listado admin de instalaciones con búsqueda por nombre/municipio.
+- Crear/editar instalación con nombre, municipio, dirección, localidad, CP, enlace Maps, latitud, longitud, estado geocoding y notas.
+- Asociar instalación a entidades desde la ficha de entidad y/o desde la ficha de instalación.
+- Coordenadas manuales editables aunque el enlace Maps no resuelva.
+- La instalación actualizada se refleja en mapas y fichas públicas.
+
+#### Paso 6 — Uploads de logos, fotos de entidad e imagen de modalidad
+
+Success criteria:
+- Subida segura de logo/fotos de entidad y foto principal de modalidad.
+- Validación de extensión/MIME/tamaño; rechazar SVG/PHP u otros formatos peligrosos salvo decisión explícita.
+- Guardado con nombre generado, no con nombre original confiado.
+- Registro en `media_files` o campos existentes (`logo_path`, `image_path` si se añade).
+- Las imágenes se muestran en admin y en público.
+- Documentar límites recomendados de Plesk y permisos de carpetas.
+
+#### Paso 7 — CRUD de modalidades editable
+
+Success criteria:
+- Listado admin de modalidades.
+- Crear/editar modalidad: nombre, slug, descripción corta, descripción larga o secciones, icono/pictograma, imagen principal, destacada, orden.
+- Las seis modalidades principales siguen funcionando.
+- La página `/modalidades/{slug}` puede leer primero desde BDD si hay contenido editable y mantener fallback al contenido PHP existente mientras se migra.
+- Las fotos principales replican el uso visual de la web pública revisada: hero/foto representativa por modalidad.
+
+#### Paso 8 — Gestión simple de usuarias
+
+Success criteria:
+- Crear usuaria interna con nombre, email/usuario y contraseña.
+- Cambiar contraseña.
+- Activar/desactivar usuaria.
+- Todas las usuarias activas pueden gestionar contenido.
+- Solo `superadmin` ve la pantalla de usuarias si se mantiene distinción.
+
+#### Paso 9 — Auditoría y protección ante errores
+
+Success criteria:
+- `audit_logs` registra importaciones, duplicados, creación/edición de entidades, instalaciones, modalidades, uploads y cambios de publicación.
+- Los errores de guardado muestran información útil para depuración sin revelar secretos.
+- Soft delete para entidades e instalaciones; no borrado físico por defecto.
+- Confirmaciones antes de acciones destructivas.
+
+#### Paso 10 — QA en Plesk y documentación de uso
+
+Success criteria:
+- Checklist manual: login, crear entidad, editar entidad importada, duplicado en importación, editar instalación, subir foto de modalidad, editar modalidad, crear usuaria.
+- `composer audit --no-dev` sin vulnerabilidades.
+- Revisión móvil/escritorio del admin.
+- Documento corto para trabajadoras: cómo importar, editar, publicar/despublicar y subir fotos.
+- Documento técnico de despliegue actualizado con permisos de `storage/uploads`, límites de subida y backups.
+
+### Project Status Board — Fase backend editable
+
+- [ ] Paso 1: Ajustar importador a modo solo altas.
+- [ ] Paso 2: Base común del admin.
+- [ ] Paso 3: CRUD de entidades — formulario principal.
+- [ ] Paso 4: CRUD de relaciones de entidad.
+- [ ] Paso 5: Gestión completa de instalaciones.
+- [ ] Paso 6: Uploads de logos/fotos/foto de modalidad.
+- [ ] Paso 7: CRUD de modalidades editable.
+- [ ] Paso 8: Gestión simple de usuarias.
+- [ ] Paso 9: Auditoría y protección ante errores.
+- [ ] Paso 10: QA en Plesk y documentación de uso.
+
+### Executor's Feedback or Assistance Requests
+
+Planner recomienda que Executor empiece solo por el Paso 1. Es el cambio con mayor impacto funcional porque evita que una importación futura sobrescriba cambios manuales.
+
+Antes de tocar base de datos real:
+
+- Confirmar si se acepta añadir un nuevo estado `duplicate` en `import_rows.status` aunque la columna sea `VARCHAR` y no requiera migración.
+- Confirmar si la detección de duplicado debe hacerse por slug derivado de nombre+municipio o por nombre exacto normalizado. Recomendación Planner: slug actual derivado del nombre, con fallback nombre+municipio si hay conflicto, para respetar la lógica existente.
+
+### Lessons
+
+- En este proyecto, las importaciones posteriores a la carga inicial son append-only: si una entidad ya existe, se marca como repetida y no se actualiza.
+- Para evitar soporte constante, el admin debe exponer edición amplia de entidades e instalaciones, incluidas coordenadas manuales.
+- Las modalidades necesitan imagen principal administrable, siguiendo el patrón de página pública con foto protagonista por modalidad.

@@ -57,7 +57,14 @@ $addressParts = array_filter([
 
 $protocolLabel = static function (?string $status): string {
     if ($status === null || $status === '') { return 'Sin datos'; }
-    return ucfirst((string) $status);
+
+    return match ($status) {
+        'yes_own' => 'Sí, propio',
+        'yes_external' => 'Sí',
+        'in_progress' => 'En proceso',
+        'no' => 'No',
+        default => 'Sin datos',
+    };
 };
 ?>
 <!doctype html>
@@ -320,29 +327,32 @@ $protocolLabel = static function (?string $status): string {
                 <details>
                     <summary>Información Complementaria</summary>
                     <ul>
-                        <?php if ($entity['has_board'] !== null): ?>
+                        <?php if (($entity['has_board'] ?? null) !== null): ?>
                             <li>Directiva: <?= $entity['has_board'] ? 'Sí' : 'No' ?></li>
                         <?php endif; ?>
                         <?php if (!empty($entity['board_members'])): ?>
                             <li>Miembros directiva: <?= (int) $entity['board_members'] ?></li>
                         <?php endif; ?>
-                        <?php if ($entity['holds_annual_assemblies'] !== null): ?>
+                        <?php if (($entity['board_male'] ?? null) !== null || ($entity['board_female'] ?? null) !== null): ?>
+                            <li>Diferenciación de miembros de la directiva por género: Hombres <?= (int) ($entity['board_male'] ?? 0) ?> / Mujeres <?= (int) ($entity['board_female'] ?? 0) ?></li>
+                        <?php endif; ?>
+                        <?php if (($entity['holds_annual_assemblies'] ?? null) !== null): ?>
                             <li>Asambleas anuales: <?= $entity['holds_annual_assemblies'] ? 'Sí' : 'No' ?></li>
                         <?php endif; ?>
                         <?php if (!empty($entity['total_members'])): ?>
                             <li>Socios/as: <?= htmlspecialchars((string) $entity['total_members'], ENT_QUOTES, 'UTF-8') ?></li>
                         <?php endif; ?>
                         <li>Protocolo de Igualdad: <?= htmlspecialchars($protocolLabel($entity['equality_protocol_status'] ?? null), ENT_QUOTES, 'UTF-8') ?></li>
-                        <li>Protocolo de Violencia: <?= htmlspecialchars($protocolLabel($entity['violence_protocol_status'] ?? null), ENT_QUOTES, 'UTF-8') ?></li>
-                        <li>LOPIVI: <?= htmlspecialchars($protocolLabel($entity['lopivi_status'] ?? null), ENT_QUOTES, 'UTF-8') ?></li>
-                        <?php if ($entity['joined_educar_entrenando'] !== null): ?>
-                            <li>Educar Entrenando: <?= $entity['joined_educar_entrenando'] ? 'Sí' : 'No' ?></li>
+                        <li>Protocolo de Actuación contra la Violencia: <?= htmlspecialchars($protocolLabel($entity['violence_protocol_status'] ?? null), ENT_QUOTES, 'UTF-8') ?></li>
+                        <li>Cumple con LOPIVI: <?= htmlspecialchars($protocolLabel($entity['lopivi_status'] ?? null), ENT_QUOTES, 'UTF-8') ?></li>
+                        <?php if (($entity['supports_educational_needs'] ?? null) !== null): ?>
+                            <li>Atiende a deportistas/practicantes con Necesidades de Apoyo Educativo: <?= $entity['supports_educational_needs'] ? 'Sí' : 'No' ?></li>
                         <?php endif; ?>
-                        <?php if ($entity['supports_educational_needs'] !== null): ?>
-                            <li>Atención a necesidades educativas: <?= $entity['supports_educational_needs'] ? 'Sí' : 'No' ?></li>
+                        <?php if (($entity['supports_disability'] ?? null) !== null): ?>
+                            <li>Atiende a deportistas/practicantes con Discapacidad: <?= $entity['supports_disability'] ? 'Sí' : 'No' ?></li>
                         <?php endif; ?>
-                        <?php if ($entity['supports_disability'] !== null): ?>
-                            <li>Atención a discapacidad: <?= $entity['supports_disability'] ? 'Sí' : 'No' ?></li>
+                        <?php if (($entity['joined_educar_entrenando'] ?? null) !== null): ?>
+                            <li>Adscrito al programa Educar Entrenando: <?= $entity['joined_educar_entrenando'] ? 'Sí' : 'No' ?></li>
                         <?php endif; ?>
                     </ul>
                 </details>

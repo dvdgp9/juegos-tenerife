@@ -129,7 +129,7 @@ a {
     overflow: hidden;
     background:
         linear-gradient(90deg, rgba(13, 34, 44, 0.84) 0%, rgba(13, 34, 44, 0.68) 42%, rgba(13, 34, 44, 0.16) 100%),
-        url("/assets/images/hero/terrero-mencey-tegueste.jpg") center / cover no-repeat;
+        url("/assets/images/modalidades/lucha-del-garrote.jpg") center / cover no-repeat;
 }
 
 .hero-copy {
@@ -1411,7 +1411,7 @@ button:focus-visible {
         padding: 84px 0 86px;
         background:
             linear-gradient(180deg, rgba(13, 34, 44, 0.78) 0%, rgba(13, 34, 44, 0.72) 58%, rgba(13, 34, 44, 0.48) 100%),
-            url("/assets/images/hero/terrero-mencey-tegueste.jpg") center / cover no-repeat;
+            url("/assets/images/modalidades/lucha-del-garrote.jpg") center / cover no-repeat;
     }
 
     .search-panel {
