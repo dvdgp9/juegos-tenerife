@@ -8,22 +8,25 @@ use JuegosTenerife\Core\Csrf;
 use JuegosTenerife\Core\Response;
 use JuegosTenerife\Core\Session;
 use JuegosTenerife\Core\View;
-use JuegosTenerife\Services\AuthService;
 use JuegosTenerife\Services\Import\ExcelPreviewService;
 use JuegosTenerife\Services\Import\EntityImportService;
 use RuntimeException;
 
-final class ImportController
+final class ImportController extends AdminController
 {
     public function index(): Response
     {
-        if (!(new AuthService())->check()) {
-            return Response::redirect('/admin/login');
+        $redirect = $this->requireAdmin();
+        if ($redirect !== null) {
+            return $redirect;
         }
 
         return View::render('admin/import', [
             'title' => 'Importar Excel',
+            'activeNav' => 'import',
+            'user' => $this->user(),
             'csrf' => Csrf::token(),
+            'flash' => $this->consumeFlash(),
             'preview' => null,
             'summary' => null,
             'error' => null,
@@ -32,8 +35,9 @@ final class ImportController
 
     public function preview(): Response
     {
-        if (!(new AuthService())->check()) {
-            return Response::redirect('/admin/login');
+        $redirect = $this->requireAdmin();
+        if ($redirect !== null) {
+            return $redirect;
         }
 
         if (!Csrf::verify($_POST['_csrf'] ?? null)) {
@@ -78,7 +82,10 @@ final class ImportController
 
         return View::render('admin/import', [
             'title' => 'Importar Excel',
+            'activeNav' => 'import',
+            'user' => $this->user(),
             'csrf' => Csrf::token(),
+            'flash' => null,
             'preview' => $preview,
             'summary' => null,
             'error' => null,
@@ -87,10 +94,9 @@ final class ImportController
 
     public function confirm(): Response
     {
-        $auth = new AuthService();
-
-        if (!$auth->check()) {
-            return Response::redirect('/admin/login');
+        $redirect = $this->requireAdmin();
+        if ($redirect !== null) {
+            return $redirect;
         }
 
         if (!Csrf::verify($_POST['_csrf'] ?? null)) {
@@ -102,7 +108,7 @@ final class ImportController
             return $this->renderWithError('No hay ningún Excel pendiente de confirmar.');
         }
 
-        $user = $auth->user();
+        $user = $this->user();
 
         try {
             $summary = (new EntityImportService())->import(
@@ -118,7 +124,10 @@ final class ImportController
 
         return View::render('admin/import', [
             'title' => 'Importar Excel',
+            'activeNav' => 'import',
+            'user' => $this->user(),
             'csrf' => Csrf::token(),
+            'flash' => null,
             'preview' => null,
             'summary' => $summary,
             'error' => null,
@@ -129,7 +138,10 @@ final class ImportController
     {
         return View::render('admin/import', [
             'title' => 'Importar Excel',
+            'activeNav' => 'import',
+            'user' => $this->user(),
             'csrf' => Csrf::token(),
+            'flash' => null,
             'preview' => null,
             'summary' => null,
             'error' => $error,

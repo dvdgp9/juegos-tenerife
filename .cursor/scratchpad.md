@@ -691,6 +691,11 @@ Success criteria:
 
 Success criteria:
 - Subida segura de logo/fotos de entidad y foto principal de modalidad.
+- En la edición de cada entidad existe una sección **Fotos de la entidad**.
+- Se pueden subir varias imágenes asociadas a una entidad.
+- Cada foto de entidad puede tener orden, título opcional/alt text y marca de foto destacada.
+- Las fotos de entidad se guardan como registros asociados en `media_files` con `owner_type = 'entity'`.
+- La ficha pública de entidad muestra las fotos como Galería, respetando orden y destacada cuando exista.
 - Validación de extensión/MIME/tamaño; rechazar SVG/PHP u otros formatos peligrosos salvo decisión explícita.
 - Guardado con nombre generado, no con nombre original confiado.
 - Registro en `media_files` o campos existentes (`logo_path`, `image_path` si se añade).
@@ -734,9 +739,9 @@ Success criteria:
 
 ### Project Status Board — Fase backend editable
 
-- [ ] Paso 1: Ajustar importador a modo solo altas.
-- [ ] Paso 2: Base común del admin.
-- [ ] Paso 3: CRUD de entidades — formulario principal.
+- [ ] Paso 1: Ajustar importador a modo solo altas. Implementado por Executor; pendiente validación manual en Plesk antes de marcar completado.
+- [ ] Paso 2: Base común del admin. Implementado por Executor; pendiente revisión visual/manual en Plesk.
+- [ ] Paso 3: CRUD de entidades — formulario principal. Implementado por Executor; pendiente validación manual en Plesk.
 - [ ] Paso 4: CRUD de relaciones de entidad.
 - [ ] Paso 5: Gestión completa de instalaciones.
 - [ ] Paso 6: Uploads de logos/fotos/foto de modalidad.
@@ -753,6 +758,41 @@ Antes de tocar base de datos real:
 
 - Confirmar si se acepta añadir un nuevo estado `duplicate` en `import_rows.status` aunque la columna sea `VARCHAR` y no requiera migración.
 - Confirmar si la detección de duplicado debe hacerse por slug derivado de nombre+municipio o por nombre exacto normalizado. Recomendación Planner: slug actual derivado del nombre, con fallback nombre+municipio si hay conflicto, para respetar la lógica existente.
+
+2026-06-24 Executor:
+
+- Implementado el Paso 1 en `app/Services/Import/EntityImportService.php`.
+- El resumen de importación ahora incluye `duplicate`.
+- Las filas repetidas devuelven estado `duplicate` y se registran en `import_rows.status`.
+- Para filas repetidas, el importador detecta existencia antes de insertar o reemplazar relaciones de entidad; no toca `entities`, `entity_contacts`, `entity_social_links`, `entity_facilities`, `entity_modalities` ni `entity_age_ranges`.
+- La pantalla `app/Views/admin/import.php` muestra `Repetidas` y `Omitidas`, y aclara que la importación solo añade entidades nuevas.
+- Documentada la regla append-only en `docs/excel-field-mapping.md`.
+- Verificación ejecutada: `php -l app/Services/Import/EntityImportService.php`, `php -l app/Views/admin/import.php` y `composer audit --no-dev` correctos.
+- No se pudo hacer prueba end-to-end con MySQL/Plesk desde este entorno. Se solicita validación manual: subir un Excel que contenga una entidad ya existente y una entidad nueva; la existente debe aparecer como repetida y no cambiar su ficha pública/admin, la nueva debe crearse.
+
+2026-06-24 Executor:
+
+- Implementado el Paso 2: base común del admin.
+- Añadido `app/Controllers/Admin/AdminController.php` con helper de autenticación y flash messages.
+- Añadidos partials `app/Views/admin/partials/layout-start.php` y `layout-end.php` para cabecera/navegación compartida.
+- Adaptadas vistas `dashboard`, `entities/index` e `import` para usar layout común.
+- La navegación admin ahora muestra estado activo y marca herramientas pendientes como deshabilitadas en vez de usar enlaces `#`.
+- Mejorada la interfaz admin en `public/assets/css/styles.css`: cabecera sticky, menú más escaneable, usuario visible, estados pendientes, resumen de tablas y confirmación de importación.
+- Verificación ejecutada: `php -l` en controladores/vistas modificadas, `composer audit --no-dev`, servidor local temporal en `127.0.0.1:8768`, `/admin/login` responde 200 y `/admin` redirige a login sin sesión.
+- Pendiente revisión visual/manual en Plesk con sesión real.
+
+2026-06-24 Executor:
+
+- Implementado el Paso 3: CRUD principal de entidades.
+- Añadidas rutas `GET /admin/entities/new`, `POST /admin/entities`, `GET /admin/entities/{id}/edit` y `POST /admin/entities/{id}`.
+- `Admin\EntityController` ahora permite crear y editar campos principales de `entities`: identidad, slug, tipo, municipio, dirección, mapa, publicación, web, textos, actividad, directiva, socios, protocolos y apoyos.
+- Guardado con CSRF, validación server-side y transacción.
+- Listado admin actualizado con acciones `Editar` y `Ver ficha`, además de botón `Crear entidad`.
+- Añadida vista `app/Views/admin/entities/form.php`, estructurada por secciones para usuarios no técnicos.
+- `MunicipalityRepository::allForAdmin()` permite mostrar también municipios no filtrables/no Tenerife en el admin.
+- CSS añadido para formularios admin cómodos: navegación lateral por secciones, grids responsivos, helper text, barra de guardado sticky y acciones claras.
+- Verificación ejecutada: `php -l` en rutas/controlador/vistas, `composer audit --no-dev`, `git diff --check` y rutas protegidas locales en `127.0.0.1:8768` redirigiendo a login sin sesión.
+- Pendiente validación manual en Plesk con sesión real: crear entidad de prueba, editar una entidad existente, comprobar que la ficha pública refleja cambios y que slugs duplicados muestran error.
 
 ### Lessons
 

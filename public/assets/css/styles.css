@@ -293,15 +293,33 @@ label {
 }
 
 input,
-select {
+select,
+textarea {
     width: 100%;
-    min-height: 46px;
     border: 1px solid #cfd8d4;
     border-radius: 7px;
     background: #ffffff;
     color: var(--color-text);
     font: inherit;
+}
+
+input,
+select {
+    min-height: 46px;
     padding: 0 12px;
+}
+
+textarea {
+    min-height: 120px;
+    padding: 12px;
+    line-height: 1.55;
+    resize: vertical;
+}
+
+small {
+    color: var(--color-muted);
+    font-size: 0.82rem;
+    line-height: 1.45;
 }
 
 button:disabled {
@@ -318,6 +336,7 @@ button:disabled {
 
 input:focus,
 select:focus,
+textarea:focus,
 summary:focus-visible,
 a:focus-visible,
 button:focus-visible {
@@ -1160,6 +1179,12 @@ button:focus-visible {
     color: #8b2920;
 }
 
+.admin-body {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.68) 0%, rgba(246, 247, 244, 0) 280px),
+        var(--color-bg);
+}
+
 .admin-header {
     display: grid;
     position: sticky;
@@ -1170,7 +1195,8 @@ button:focus-visible {
     align-items: center;
     padding: 14px clamp(16px, 4vw, 44px);
     border-bottom: 1px solid var(--color-line);
-    background: #ffffff;
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(18px);
 }
 
 .admin-nav {
@@ -1182,13 +1208,88 @@ button:focus-visible {
     font-weight: 720;
 }
 
-.admin-nav a {
+.admin-nav a,
+.admin-nav-disabled {
+    display: inline-flex;
+    min-height: 34px;
+    align-items: center;
+    border-radius: 7px;
+    padding: 0 10px;
     text-decoration: none;
+}
+
+.admin-nav a:hover,
+.admin-nav a[aria-current="page"] {
+    background: var(--color-soft);
+    color: var(--color-accent);
+}
+
+.admin-nav-disabled {
+    color: #93a09b;
+    cursor: not-allowed;
+}
+
+.admin-user-menu {
+    display: flex;
+    align-items: center;
+    justify-content: end;
+    gap: 12px;
+    min-width: 0;
+}
+
+.admin-user-menu span {
+    max-width: 220px;
+    overflow: hidden;
+    color: var(--color-muted);
+    font-size: 0.86rem;
+    font-weight: 740;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.button.compact {
+    min-height: 38px;
+    padding: 0 13px;
 }
 
 .admin-shell {
     width: min(1280px, calc(100% - 32px));
     margin: 0 auto;
+}
+
+.admin-page-intro {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 24px;
+    align-items: end;
+    padding: 54px 0 28px;
+}
+
+.admin-page-intro h1 {
+    font-size: clamp(2rem, 3.8vw, 3.2rem);
+}
+
+.admin-page-intro p {
+    margin-bottom: 0;
+}
+
+.admin-status-panel {
+    display: grid;
+    gap: 5px;
+    min-width: 250px;
+    border-left: 1px solid var(--color-line);
+    padding-left: 18px;
+}
+
+.admin-status-panel span,
+.admin-table-tools span,
+.admin-confirm-row p {
+    color: var(--color-muted);
+    font-size: 0.9rem;
+}
+
+.admin-status-panel strong {
+    overflow-wrap: anywhere;
 }
 
 .admin-actions {
@@ -1212,6 +1313,25 @@ button:focus-visible {
 
 .admin-actions h2 {
     font-size: 1.35rem;
+}
+
+.admin-actions a {
+    align-self: end;
+    color: var(--color-accent);
+    font-weight: 820;
+    text-decoration: none;
+}
+
+.admin-actions a:hover {
+    color: var(--color-accent-dark);
+}
+
+.admin-action-muted {
+    box-shadow: none;
+}
+
+.admin-action-muted p {
+    margin-bottom: 0;
 }
 
 .import-layout {
@@ -1249,7 +1369,7 @@ button:focus-visible {
 
 .preview-head dl {
     display: grid;
-    grid-template-columns: repeat(4, minmax(92px, 1fr));
+    grid-template-columns: repeat(5, minmax(92px, 1fr));
     gap: 10px;
     margin: 0;
 }
@@ -1332,15 +1452,197 @@ button:focus-visible {
     color: var(--color-muted);
 }
 
+.admin-table-tools {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0 0 12px;
+}
+
+.admin-table-tools > div {
+    display: grid;
+    gap: 3px;
+}
+
+.admin-table-link {
+    color: var(--color-accent);
+    font-weight: 820;
+    text-decoration: none;
+}
+
+.admin-table-link.muted {
+    color: var(--color-muted);
+}
+
+.admin-table-link:hover {
+    color: var(--color-accent-dark);
+}
+
+.admin-row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.admin-confirm-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    justify-content: space-between;
+    border-top: 1px solid var(--color-line);
+    padding-top: 18px;
+}
+
+.admin-confirm-row p {
+    max-width: 680px;
+    margin: 0;
+}
+
 .admin-table-wrap,
 .admin-empty {
     margin-bottom: 80px;
+}
+
+.admin-entity-form {
+    display: grid;
+    grid-template-columns: 210px minmax(0, 1fr);
+    gap: 28px;
+    align-items: start;
+    padding-bottom: 92px;
+}
+
+.admin-form-rail {
+    position: sticky;
+    top: 96px;
+    display: grid;
+    gap: 6px;
+    border-left: 1px solid var(--color-line);
+    padding-left: 14px;
+}
+
+.admin-form-rail a {
+    border-radius: 7px;
+    color: var(--color-muted);
+    padding: 9px 10px;
+    font-size: 0.92rem;
+    font-weight: 760;
+    text-decoration: none;
+}
+
+.admin-form-rail a:hover {
+    background: var(--color-soft);
+    color: var(--color-accent);
+}
+
+.admin-form-main {
+    display: grid;
+    gap: 18px;
+}
+
+.admin-form-section {
+    display: grid;
+    gap: 22px;
+    border: 1px solid var(--color-line);
+    border-radius: 8px;
+    background: var(--color-surface);
+    padding: clamp(18px, 3vw, 28px);
+}
+
+.admin-form-section-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: start;
+    border-bottom: 1px solid var(--color-line);
+    padding-bottom: 18px;
+}
+
+.admin-form-section-head h2 {
+    font-size: clamp(1.35rem, 2vw, 1.8rem);
+}
+
+.form-grid {
+    display: grid;
+    gap: 16px;
+}
+
+.form-grid.one {
+    grid-template-columns: 1fr;
+}
+
+.form-grid.two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.form-grid.three {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.field.wide {
+    grid-column: 1 / -1;
+}
+
+.field small {
+    margin-top: -2px;
+}
+
+.switch-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    border: 1px solid var(--color-line);
+    border-radius: 999px;
+    background: var(--color-soft);
+    padding: 0 14px 0 10px;
+    cursor: pointer;
+}
+
+.switch-field input {
+    width: 18px;
+    min-height: 18px;
+    accent-color: var(--color-accent);
+}
+
+.switch-field span {
+    color: var(--color-text);
+    font-size: 0.9rem;
+    font-weight: 800;
+}
+
+.admin-form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: end;
+}
+
+.admin-form-actions.top {
+    align-self: end;
+}
+
+.admin-form-submit {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    display: flex;
+    justify-content: end;
+    gap: 12px;
+    border: 1px solid var(--color-line);
+    border-radius: 8px 8px 0 0;
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(16px);
+    padding: 14px;
 }
 
 @media (max-width: 1020px) {
     .site-header,
     .admin-header,
     .admin-auth,
+    .admin-page-intro,
+    .admin-entity-form,
     .hero,
     .map-preview,
     .results-layout,
@@ -1357,12 +1659,47 @@ button:focus-visible {
         padding-bottom: 2px;
     }
 
+    .admin-nav {
+        justify-content: start;
+        order: 3;
+        grid-column: 1 / -1;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 2px;
+    }
+
+    .admin-user-menu {
+        justify-content: start;
+    }
+
+    .admin-status-panel {
+        min-width: 0;
+        border-left: 0;
+        border-top: 1px solid var(--color-line);
+        padding: 16px 0 0;
+    }
+
+    .admin-form-rail {
+        position: static;
+        display: flex;
+        overflow-x: auto;
+        border-left: 0;
+        border-bottom: 1px solid var(--color-line);
+        padding: 0 0 10px;
+    }
+
+    .admin-form-actions {
+        justify-content: start;
+    }
+
     .search-form,
     .admin-import-panel,
     .preview-head,
     .preview-head dl,
     .preview-grid,
     .admin-actions,
+    .form-grid.two,
+    .form-grid.three,
     .section-heading,
     .content-band,
     .modalities-grid,

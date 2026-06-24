@@ -116,3 +116,13 @@ Archivo definitivo revisado: `Listado Entidades Def.xlsx`.
 - El archivo definitivo trae `La Laguna` en una fila; se normaliza a `San Cristóbal de La Laguna` durante la importación.
 - Algunos campos numéricos incluyen texto, por ejemplo socios `291 en activo`.
 - El municipio `Agüimes` confirma que no todos los registros son estrictamente de municipios de Tenerife.
+
+## Regla de importaciones posteriores
+
+Después de la carga inicial, las importaciones Excel deben funcionar en modo solo altas:
+
+- Si una fila corresponde a una entidad nueva, se crea junto con sus modalidades, contactos, redes, instalaciones y tramos de edad.
+- Si una fila corresponde a una entidad ya existente, se registra como `duplicate` en `import_rows.status`.
+- Las filas repetidas no actualizan `entities` ni reemplazan relaciones hijas como contactos, redes, instalaciones, modalidades o edades.
+- La pantalla de importación muestra cuántas filas fueron creadas, repetidas, omitidas o terminaron con error.
+- La detección de repetidos usa el slug derivado del nombre y, como apoyo, la combinación de nombre normalizado y municipio.

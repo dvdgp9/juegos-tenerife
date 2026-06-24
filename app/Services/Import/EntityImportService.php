@@ -89,6 +89,7 @@ final class EntityImportService
             'total' => 0,
             'created' => 0,
             'updated' => 0,
+            'duplicate' => 0,
             'skipped' => 0,
             'errors' => 0,
         ];
@@ -120,7 +121,8 @@ final class EntityImportService
                     try {
                         $result = $this->importRow($pdo, $rowMap);
                         $summary[$result]++;
-                        $this->recordImportRow($pdo, $importId, $rowIndex, $result, $rowMap, $warnings, [], $result === 'skipped' ? null : $this->findEntityId($pdo, (string) $rowMap['Nombre Entidad']));
+                        $entityId = $result === 'skipped' ? null : $this->findEntityIdForImportRow($pdo, $rowMap);
+                        $this->recordImportRow($pdo, $importId, $rowIndex, $result, $rowMap, $warnings, [], $entityId);
                     } catch (RuntimeException $exception) {
                         $summary['errors']++;
                         $this->recordImportRow($pdo, $importId, $rowIndex, 'error', $rowMap, $warnings, [$exception->getMessage()], null);
@@ -152,11 +154,16 @@ final class EntityImportService
             return 'skipped';
         }
 
-        $entityTypeId = $this->upsertSimpleLookup($pdo, 'entity_types', (string) ($row['Tipo Entidad'] ?? 'Sin tipo'));
         $municipality = $this->normalizeMunicipalityName((string) ($row['Municipio'] ?? ''));
-        $municipalityId = $this->upsertMunicipality($pdo, $municipality);
         $slug = $this->uniqueSlugForEntity($pdo, $name, $municipality);
-        $existingId = $this->findEntityIdBySlug($pdo, $slug);
+        $existingId = $this->findExistingEntityId($pdo, $name, $municipality, $slug);
+
+        if ($existingId !== null) {
+            return 'duplicate';
+        }
+
+        $entityTypeId = $this->upsertSimpleLookup($pdo, 'entity_types', (string) ($row['Tipo Entidad'] ?? 'Sin tipo'));
+        $municipalityId = $this->upsertMunicipality($pdo, $municipality);
 
         $statement = $pdo->prepare(
             'INSERT INTO entities (
@@ -175,43 +182,7 @@ final class EntityImportService
                 :has_members, :total_members, :male_members, :female_members, :equality_protocol_status,
                 :violence_protocol_status, :lopivi_status, :joined_educar_entrenando, :supports_educational_needs,
                 :supports_disability, :source_reference
-            )
-            ON DUPLICATE KEY UPDATE
-                entity_type_id = VALUES(entity_type_id),
-                municipality_id = VALUES(municipality_id),
-                name = VALUES(name),
-                address = VALUES(address),
-                locality = VALUES(locality),
-                postal_code = VALUES(postal_code),
-                website_url = VALUES(website_url),
-                history = VALUES(history),
-                corporate_principles = VALUES(corporate_principles),
-                sports_values = VALUES(sports_values),
-                total_teams = VALUES(total_teams),
-                teams_by_gender = VALUES(teams_by_gender),
-                teams_by_age = VALUES(teams_by_age),
-                total_practitioners = VALUES(total_practitioners),
-                female_practitioners = VALUES(female_practitioners),
-                male_practitioners = VALUES(male_practitioners),
-                training_practices = VALUES(training_practices),
-                training_days = VALUES(training_days),
-                training_hours = VALUES(training_hours),
-                has_board = VALUES(has_board),
-                board_members = VALUES(board_members),
-                board_male = VALUES(board_male),
-                board_female = VALUES(board_female),
-                holds_annual_assemblies = VALUES(holds_annual_assemblies),
-                has_members = VALUES(has_members),
-                total_members = VALUES(total_members),
-                male_members = VALUES(male_members),
-                female_members = VALUES(female_members),
-                equality_protocol_status = VALUES(equality_protocol_status),
-                violence_protocol_status = VALUES(violence_protocol_status),
-                lopivi_status = VALUES(lopivi_status),
-                joined_educar_entrenando = VALUES(joined_educar_entrenando),
-                supports_educational_needs = VALUES(supports_educational_needs),
-                supports_disability = VALUES(supports_disability),
-                source_reference = VALUES(source_reference)'
+            )'
         );
 
         $statement->execute([
@@ -264,7 +235,7 @@ final class EntityImportService
         $this->replaceFacilities($pdo, $entityId, $row);
         $this->replaceAgeRanges($pdo, $entityId, $row);
 
-        return $existingId === null ? 'created' : 'updated';
+        return 'created';
     }
 
     private function createImport(PDO $pdo, string $originalFilename, string $storedPath, ?int $userId): int
@@ -322,7 +293,7 @@ final class EntityImportService
         $statement->execute([
             'import_id' => $importId,
             'source_row_number' => $rowNumber,
-            'status' => $status === 'created' || $status === 'updated' || $status === 'skipped' ? $status : 'error',
+            'status' => in_array($status, ['created', 'updated', 'duplicate', 'skipped'], true) ? $status : 'error',
             'entity_id' => $entityId,
             'raw_data' => json_encode($rawData, JSON_UNESCAPED_UNICODE),
             'warnings' => json_encode($warnings, JSON_UNESCAPED_UNICODE),
@@ -383,10 +354,56 @@ final class EntityImportService
         return Slugger::slug($name . '-' . $municipality);
     }
 
+    /**
+     * @param array<string, string> $row
+     */
+    private function findEntityIdForImportRow(PDO $pdo, array $row): ?int
+    {
+        $name = trim($row['Nombre Entidad'] ?? '');
+        if ($name === '') {
+            return null;
+        }
+
+        $municipality = $this->normalizeMunicipalityName((string) ($row['Municipio'] ?? ''));
+        $slug = $this->uniqueSlugForEntity($pdo, $name, $municipality);
+
+        return $this->findExistingEntityId($pdo, $name, $municipality, $slug);
+    }
+
     private function findEntityId(PDO $pdo, string $name): ?int
     {
         $statement = $pdo->prepare('SELECT id FROM entities WHERE name = :name ORDER BY id DESC LIMIT 1');
         $statement->execute(['name' => $name]);
+        $id = $statement->fetchColumn();
+
+        return $id === false ? null : (int) $id;
+    }
+
+    private function findExistingEntityId(PDO $pdo, string $name, string $municipality, string $slug): ?int
+    {
+        $existingBySlug = $this->findEntityIdBySlug($pdo, $slug);
+        if ($existingBySlug !== null) {
+            return $existingBySlug;
+        }
+
+        $municipality = $this->normalizeMunicipalityName($municipality);
+        $municipalitySlug = $municipality !== '' ? Slugger::slug($municipality) : null;
+
+        $statement = $pdo->prepare(
+            'SELECT e.id
+             FROM entities e
+             LEFT JOIN municipalities m ON m.id = e.municipality_id
+             WHERE LOWER(TRIM(e.name)) = LOWER(TRIM(:name))
+               AND (:municipality_slug_empty = 1 OR m.slug = :municipality_slug)
+               AND e.deleted_at IS NULL
+             ORDER BY e.id DESC
+             LIMIT 1'
+        );
+        $statement->execute([
+            'name' => $name,
+            'municipality_slug_empty' => $municipalitySlug === null ? 1 : 0,
+            'municipality_slug' => $municipalitySlug,
+        ]);
         $id = $statement->fetchColumn();
 
         return $id === false ? null : (int) $id;

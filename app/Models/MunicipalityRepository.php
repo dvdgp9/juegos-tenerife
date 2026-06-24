@@ -25,4 +25,18 @@ final class MunicipalityRepository
 
         return $statement ? $statement->fetchAll(PDO::FETCH_ASSOC) : [];
     }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function allForAdmin(): array
+    {
+        $statement = Database::connection()->query(
+            'SELECT id, name, slug, is_tenerife, is_filterable
+             FROM municipalities
+             ORDER BY is_tenerife DESC, sort_order ASC, name ASC'
+        );
+
+        return $statement ? $statement->fetchAll(PDO::FETCH_ASSOC) : [];
+    }
 }

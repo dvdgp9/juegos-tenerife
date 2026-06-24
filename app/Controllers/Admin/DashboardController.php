@@ -7,22 +7,22 @@ namespace JuegosTenerife\Controllers\Admin;
 use JuegosTenerife\Core\Response;
 use JuegosTenerife\Core\Csrf;
 use JuegosTenerife\Core\View;
-use JuegosTenerife\Services\AuthService;
 
-final class DashboardController
+final class DashboardController extends AdminController
 {
     public function index(): Response
     {
-        $auth = new AuthService();
-
-        if (!$auth->check()) {
-            return Response::redirect('/admin/login');
+        $redirect = $this->requireAdmin();
+        if ($redirect !== null) {
+            return $redirect;
         }
 
         return View::render('admin/dashboard', [
             'title' => 'Panel de administración',
-            'user' => $auth->user(),
+            'activeNav' => 'dashboard',
+            'user' => $this->user(),
             'csrf' => Csrf::token(),
+            'flash' => $this->consumeFlash(),
         ]);
     }
 }
