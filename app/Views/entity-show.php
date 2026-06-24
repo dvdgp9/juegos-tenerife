@@ -331,10 +331,12 @@ $protocolLabel = static function (?string $status): string {
                             <li>Directiva: <?= $entity['has_board'] ? 'Sí' : 'No' ?></li>
                         <?php endif; ?>
                         <?php if (!empty($entity['board_members'])): ?>
-                            <li>Miembros directiva: <?= (int) $entity['board_members'] ?></li>
-                        <?php endif; ?>
-                        <?php if (($entity['board_male'] ?? null) !== null || ($entity['board_female'] ?? null) !== null): ?>
-                            <li>Diferenciación de miembros de la directiva por género: Hombres <?= (int) ($entity['board_male'] ?? 0) ?> / Mujeres <?= (int) ($entity['board_female'] ?? 0) ?></li>
+                            <li>
+                                Miembros directiva: <?= (int) $entity['board_members'] ?>
+                                <?php if (($entity['board_male'] ?? null) !== null || ($entity['board_female'] ?? null) !== null): ?>
+                                    (<?= (int) ($entity['board_male'] ?? 0) ?> hombres / <?= (int) ($entity['board_female'] ?? 0) ?> mujeres)
+                                <?php endif; ?>
+                            </li>
                         <?php endif; ?>
                         <?php if (($entity['holds_annual_assemblies'] ?? null) !== null): ?>
                             <li>Asambleas anuales: <?= $entity['holds_annual_assemblies'] ? 'Sí' : 'No' ?></li>

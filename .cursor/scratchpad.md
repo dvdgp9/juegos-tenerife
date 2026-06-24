@@ -174,7 +174,7 @@ Hito completado:
 
 - Sustituir foto principal de cabecera por imagen de modalidad de lucha del garrote.
 - Corregir etiquetas y valores públicos del cuadro "Información Complementaria" en ficha.
-- Mostrar diferenciación de miembros de la directiva por género si existen datos importados.
+- Mostrar miembros de la directiva con desglose por género en una sola línea si existen datos importados.
 - No implementar cambios para fotos de la entidad; solo responder criterio de ubicación al usuario.
 
 Executor activo. El usuario autorizó avanzar y evaluar continuamente.
