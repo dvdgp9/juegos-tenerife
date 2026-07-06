@@ -1025,11 +1025,11 @@ La cliente solicita tres ajustes de identidad y copy público:
 Executor completado:
 
 - Se confirmó que `public/assets/images/favicon.png` era el logo completo comprimido en 64x64.
-- No se encontró un archivo independiente llamado símbolo; se regeneró `public/assets/images/favicon.png` con el escudo/símbolo presente en el asset de marca disponible.
+- El usuario facilitó el símbolo correcto en `/Users/dvdgp/Downloads/favicon-dxt.png` y se sustituyó `public/assets/images/favicon.png` por ese archivo.
 - Se añadió footer institucional a páginas públicas interiores que no lo tenían: resultados y ficha de entidad.
 - Se cambió el rótulo público de ficha a "Instalaciones / Espacios de práctica".
 - Verificación ejecutada: `php -l app/Views/search-results.php`, `php -l app/Views/entity-show.php` y `composer audit --no-dev` correctos.
 
 ### Executor's Feedback or Assistance Requests
 
-- Si la cliente tenía otro símbolo adjunto distinto al escudo de la marca DXT, debe facilitar el archivo para sustituir `public/assets/images/favicon.png`.
+- Sin solicitudes pendientes para esta tanda.
