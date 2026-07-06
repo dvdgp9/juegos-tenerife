@@ -67,6 +67,7 @@ CREATE TABLE entities (
     municipality_id SMALLINT UNSIGNED NULL,
     name VARCHAR(220) NOT NULL,
     slug VARCHAR(240) NOT NULL,
+    entity_subtype VARCHAR(120) NULL,
     logo_path VARCHAR(255) NULL,
     address VARCHAR(255) NULL,
     locality VARCHAR(160) NULL,

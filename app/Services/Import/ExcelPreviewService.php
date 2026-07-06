@@ -105,6 +105,7 @@ final class ExcelPreviewService
                 $warnings = [];
                 $modalities = [];
                 $municipalities = [];
+                $subtypes = [];
                 $mapsCount = 0;
                 $missingRequired = [];
                 $duplicateHeaders = [];
@@ -135,6 +136,11 @@ final class ExcelPreviewService
                         $municipalities[$municipality] = ($municipalities[$municipality] ?? 0) + 1;
                     }
 
+                    $subtype = trim($rowMap['Tipo Entidad Complementaria'] ?? '');
+                    if ($subtype !== '') {
+                        $subtypes[$subtype] = ($subtypes[$subtype] ?? 0) + 1;
+                    }
+
                     foreach (['Modalidad1', 'Modalidad2', 'Modalidad3', 'Modalidad4'] as $field) {
                         $modality = $rowMap[$field] ?? '';
                         if ($modality !== '') {
@@ -158,6 +164,7 @@ final class ExcelPreviewService
                         $sampleRows[] = [
                             'row' => $rowIndex,
                             'type' => $rowMap['Tipo Entidad'] ?? '',
+                            'subtype' => $rowMap['Tipo Entidad Complementaria'] ?? '',
                             'name' => $rowMap['Nombre Entidad'] ?? '',
                             'municipality' => $municipality,
                             'modalities' => array_values(array_filter([
@@ -197,6 +204,7 @@ final class ExcelPreviewService
                     'missingHeaders' => $missingHeaders,
                     'modalities' => $modalities,
                     'municipalities' => $municipalities,
+                    'subtypes' => $subtypes,
                     'mapsCount' => $mapsCount,
                     'missingRequired' => $missingRequired,
                 ];

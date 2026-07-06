@@ -119,7 +119,7 @@ final class EntityImportService
                     $warnings = $this->excel->validateRow($rowMap, $rowIndex);
 
                     try {
-                        $result = $this->importRow($pdo, $rowMap);
+                        $result = $this->importRow($pdo, $rowMap, $warnings);
                         $summary[$result]++;
                         $entityId = $result === 'skipped' ? null : $this->findEntityIdForImportRow($pdo, $rowMap);
                         $this->recordImportRow($pdo, $importId, $rowIndex, $result, $rowMap, $warnings, [], $entityId);
@@ -146,8 +146,9 @@ final class EntityImportService
 
     /**
      * @param array<string, string> $row
+     * @param list<string> $warnings
      */
-    private function importRow(PDO $pdo, array $row): string
+    private function importRow(PDO $pdo, array $row, array &$warnings): string
     {
         $name = trim($row['Nombre Entidad'] ?? '');
         if ($name === '') {
@@ -167,7 +168,7 @@ final class EntityImportService
 
         $statement = $pdo->prepare(
             'INSERT INTO entities (
-                entity_type_id, municipality_id, name, slug, address, locality, postal_code, website_url,
+                entity_type_id, municipality_id, name, slug, entity_subtype, address, locality, postal_code, website_url,
                 history, corporate_principles, sports_values, total_teams, teams_by_gender, teams_by_age,
                 total_practitioners, female_practitioners, male_practitioners, training_practices, training_days,
                 training_hours, has_board, board_members, board_male, board_female, holds_annual_assemblies,
@@ -175,7 +176,7 @@ final class EntityImportService
                 violence_protocol_status, lopivi_status, joined_educar_entrenando, supports_educational_needs,
                 supports_disability, source_reference
             ) VALUES (
-                :entity_type_id, :municipality_id, :name, :slug, :address, :locality, :postal_code, :website_url,
+                :entity_type_id, :municipality_id, :name, :slug, :entity_subtype, :address, :locality, :postal_code, :website_url,
                 :history, :corporate_principles, :sports_values, :total_teams, :teams_by_gender, :teams_by_age,
                 :total_practitioners, :female_practitioners, :male_practitioners, :training_practices, :training_days,
                 :training_hours, :has_board, :board_members, :board_male, :board_female, :holds_annual_assemblies,
@@ -190,6 +191,7 @@ final class EntityImportService
             'municipality_id' => $municipalityId,
             'name' => $name,
             'slug' => $slug,
+            'entity_subtype' => $this->nullable($row['Tipo Entidad Complementaria'] ?? ''),
             'address' => $this->nullable($row['Domicilio'] ?? ''),
             'locality' => $this->nullable($row['Localidad'] ?? ''),
             'postal_code' => $this->nullable($row['Código Postal'] ?? ''),
@@ -229,11 +231,12 @@ final class EntityImportService
             throw new RuntimeException('No se pudo recuperar la entidad importada.');
         }
 
-        $this->replaceModalities($pdo, $entityId, $row);
-        $this->replaceContacts($pdo, $entityId, $row);
-        $this->replaceSocialLinks($pdo, $entityId, $row);
-        $this->replaceFacilities($pdo, $entityId, $row);
-        $this->replaceAgeRanges($pdo, $entityId, $row);
+            $this->replaceModalities($pdo, $entityId, $row);
+            $this->replaceContacts($pdo, $entityId, $row);
+            $this->replaceSocialLinks($pdo, $entityId, $row);
+            $warnings = array_merge($warnings, $this->replaceFacilities($pdo, $entityId, $row));
+            $this->syncEntityGeocodingFromFacilities($pdo, $entityId);
+            $this->replaceAgeRanges($pdo, $entityId, $row);
 
         return 'created';
     }
@@ -519,10 +522,12 @@ final class EntityImportService
 
     /**
      * @param array<string, string> $row
+     * @return list<string>
      */
-    private function replaceFacilities(PDO $pdo, int $entityId, array $row): void
+    private function replaceFacilities(PDO $pdo, int $entityId, array $row): array
     {
         $pdo->prepare('DELETE FROM entity_facilities WHERE entity_id = :entity_id')->execute(['entity_id' => $entityId]);
+        $warnings = [];
 
         for ($i = 1; $i <= 9; $i++) {
             $raw = trim($row['Instalaciones' . $i] ?? '');
@@ -533,7 +538,19 @@ final class EntityImportService
             $facility = $this->parseFacility($raw, (string) ($row['Municipio'] ?? ''));
             $municipalityId = $this->upsertMunicipality($pdo, $facility['municipality']);
             $slug = Slugger::slug($facility['name'] . '-' . $facility['municipality']);
-            $coordinates = $facility['google_maps_url'] !== null ? $this->maps->extract($facility['google_maps_url']) : null;
+            $coordinates = null;
+
+            if ($facility['google_maps_url'] !== null) {
+                try {
+                    $coordinates = $this->maps->extract($facility['google_maps_url']);
+                } catch (\Throwable) {
+                    $coordinates = null;
+                }
+
+                if ($coordinates === null) {
+                    $warnings[] = 'Instalación ' . $i . ': no se pudieron resolver coordenadas desde Google Maps; queda pendiente de revisión.';
+                }
+            }
 
             $statement = $pdo->prepare(
                 'INSERT INTO facilities (municipality_id, name, slug, google_maps_url, latitude, longitude, geocoding_status, notes)
@@ -564,6 +581,43 @@ final class EntityImportService
             $link = $pdo->prepare('INSERT IGNORE INTO entity_facilities (entity_id, facility_id, label, sort_order) VALUES (:entity_id, :facility_id, :label, :sort_order)');
             $link->execute(['entity_id' => $entityId, 'facility_id' => $facilityId, 'label' => 'Instalación ' . $i, 'sort_order' => $i * 10]);
         }
+
+        return $warnings;
+    }
+
+    private function syncEntityGeocodingFromFacilities(PDO $pdo, int $entityId): void
+    {
+        $statement = $pdo->prepare(
+            'SELECT f.latitude, f.longitude
+             FROM entity_facilities ef
+             INNER JOIN facilities f ON f.id = ef.facility_id
+             WHERE ef.entity_id = :entity_id
+               AND f.latitude IS NOT NULL
+               AND f.longitude IS NOT NULL
+               AND f.deleted_at IS NULL
+             ORDER BY ef.sort_order ASC, f.id ASC
+             LIMIT 1'
+        );
+        $statement->execute(['entity_id' => $entityId]);
+        $coordinates = $statement->fetch(PDO::FETCH_ASSOC);
+
+        if (!is_array($coordinates)) {
+            return;
+        }
+
+        $update = $pdo->prepare(
+            'UPDATE entities
+             SET latitude = :latitude,
+                 longitude = :longitude,
+                 geocoding_status = :geocoding_status
+             WHERE id = :id'
+        );
+        $update->execute([
+            'latitude' => $coordinates['latitude'],
+            'longitude' => $coordinates['longitude'],
+            'geocoding_status' => 'resolved',
+            'id' => $entityId,
+        ]);
     }
 
     /**

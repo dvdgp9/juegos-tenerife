@@ -869,3 +869,167 @@ Antes de tocar base de datos real:
 - En este proyecto, las importaciones posteriores a la carga inicial son append-only: si una entidad ya existe, se marca como repetida y no se actualiza.
 - Para evitar soporte constante, el admin debe exponer edición amplia de entidades e instalaciones, incluidas coordenadas manuales.
 - Las modalidades necesitan imagen principal administrable, siguiendo el patrón de página pública con foto protagonista por modalidad.
+
+## 2026-06-26 — Planner: adaptar importación al Excel final 20260608
+
+### Background and Motivation
+
+El usuario aporta dos ficheros para revisar la importación Excel:
+
+- Excel de prueba inicial: `/Users/dvdgp/Downloads/Plataforma Juegos Tenerife/Listado Entidades Prueba 20260522.xlsx`.
+- Excel final actual: `/Users/dvdgp/Downloads/Plataforma Juegos Tenerife/Listado Entidades 20260608.xlsx`.
+
+La estructura que debe soportar la plataforma a partir de ahora es la del Excel final. La importación debe seguir permitiendo revisar antes de guardar y debe resolver las ubicaciones incluidas en las columnas de instalaciones, donde las celdas mezclan nombre de instalación y enlace corto de Google Maps.
+
+### Key Challenges and Analysis
+
+- El Excel de prueba tiene 68 columnas y 11 registros. El Excel final tiene 69 columnas y 41 registros.
+- La columna nueva relevante en el final es `Tipo Entidad2`; el importador actual ya crea el alias interno `Tipo Entidad Complementaria`, pero hoy solo conserva ese dato en `raw_data` y no lo guarda en un campo consultable.
+- El final mantiene cabeceras duplicadas `Teléfono1` y `Teléfono2` en posiciones distintas. El mapeo actual por ocurrencia funciona y crea `Teléfono Contacto1` y `Teléfono Contacto2`.
+- El preview actual del Excel final no detecta cabeceras faltantes. Detecta 35 celdas con enlaces de Google Maps, 2 filas sin `Domicilio`/`Código Postal`, y 1 fila con `Agüimes` como municipio fuera de Tenerife.
+- Comprobación puntual y masiva ejecutada el 2026-06-26: los 35 enlaces únicos `maps.app.goo.gl` del Excel final resolvieron coordenadas correctamente con `GoogleMapsCoordinateExtractor` en este entorno.
+- La plataforma ya tiene modelo de instalaciones con `google_maps_url`, `latitude`, `longitude` y `geocoding_status`, más edición manual desde admin. Esto encaja con la necesidad de "que la plataforma encuentre esa ubicación".
+- Riesgo técnico: depender de la expansión de enlaces cortos de Google Maps en tiempo de importación puede fallar por red, cambios de Google o timeout. El importador debe conservar siempre la URL y dejar `geocoding_status = pending` si no puede resolver coordenadas.
+- Riesgo funcional: si `Tipo Entidad2` debe mostrarse o filtrarse públicamente, el modelo actual de un único tipo principal no basta. Recomendación Planner: para esta fase no cambiar filtros públicos; conservar `Tipo Entidad2` como dato complementario visible en admin/raw o añadir un campo simple si el usuario confirma que debe aparecer.
+
+### High-level Task Breakdown
+
+#### Paso 1: Actualizar documentación y tests de contrato del Excel final
+
+Success criteria:
+- `docs/excel-field-mapping.md` referencia explícitamente `Listado Entidades 20260608.xlsx` como estructura vigente.
+- Existe una prueba o script verificable que compare cabeceras esperadas contra el Excel final y falle si cambia una cabecera crítica.
+- La prueba valida al menos: 69 columnas, hoja `ENTIDADES`, duplicados de `Teléfono1`/`Teléfono2`, alias `Tipo Entidad`, alias `Tipo Entidad Complementaria`, y ausencia de cabeceras faltantes.
+- No se toca base de datos real.
+
+#### Paso 2: Hacer explícita la estrategia de `Tipo Entidad2`
+
+Success criteria:
+- El importador conserva `Tipo Entidad2` de forma auditable.
+- Si se decide guardarlo en `entities`, existe migración no destructiva y el admin lo muestra/edita.
+- Si no se decide guardarlo todavía, queda documentado que se conserva solo en `import_rows.raw_data`.
+- El preview muestra `Tipo Entidad1`/`Tipo Entidad2` de forma clara cuando existan.
+
+#### Paso 3: Endurecer importación de instalaciones y geolocalización
+
+Success criteria:
+- El parseo de `Instalaciones1` a `Instalaciones9` cubre celdas con formato `Nombre https://maps.app.goo.gl/...` y `Municipio: Nombre https://...`.
+- El importador guarda siempre instalación y URL aunque falle la extracción de coordenadas.
+- Si resuelve coordenadas, guarda `latitude`, `longitude` y `geocoding_status = resolved`.
+- Si no resuelve, deja `geocoding_status = pending` y una advertencia útil en `import_rows.warnings`.
+- La importación no queda bloqueada por timeouts o fallos de una URL concreta.
+
+#### Paso 4: Probar preview e importación contra el Excel final
+
+Success criteria:
+- `ExcelPreviewService` devuelve para el Excel final: 41 registros, 69 cabeceras, 35 enlaces Maps detectados y sin cabeceras faltantes.
+- Prueba de importación en base de datos de desarrollo o staging crea entidades nuevas sin sobrescribir duplicadas.
+- Al menos una entidad con instalación geolocalizada aparece con marcador en la ficha/mapa público.
+- Las dos filas sin domicilio/código postal se importan con warning, no como error fatal.
+
+#### Paso 5: QA manual en Plesk antes de dar por cerrada la adaptación
+
+Success criteria:
+- Subir `Listado Entidades 20260608.xlsx` desde `/admin/import`.
+- Revisar la previsualización: filas, modalidades, municipios, repetidas y avisos.
+- Confirmar importación y revisar resumen de creadas/repetidas/errores.
+- Abrir listado de instalaciones y comprobar coordenadas resueltas o pendientes.
+- Abrir varias fichas públicas con instalaciones y confirmar mapa/listado de ubicaciones.
+
+### Project Status Board — Fase importación Excel final
+
+- [ ] Paso 1: Actualizar documentación y tests de contrato del Excel final. Validación manual omitida por falta de SSH; verificación local de Executor correcta.
+- [ ] Paso 2: Hacer explícita la estrategia de `Tipo Entidad2`. Implementado por Executor; pendiente ejecutar migración y validar en Plesk antes de marcar completado.
+- [ ] Paso 3: Endurecer importación de instalaciones y geolocalización. Implementado por Executor; pendiente validar con importación real en Plesk.
+- [ ] Paso 4: Probar preview e importación contra el Excel final.
+- [ ] Paso 5: QA manual en Plesk antes de dar por cerrada la adaptación.
+
+### Executor's Feedback or Assistance Requests
+
+Planner recomienda que Executor empiece solo por el Paso 1. Es pequeño, no toca base de datos y deja una prueba de contrato para que los siguientes cambios no rompan la estructura final del Excel.
+
+Antes del Paso 2, confirmar con el usuario si `Tipo Entidad2` debe mostrarse públicamente o solo conservarse para auditoría interna. Recomendación Planner por simplicidad: conservarlo para auditoría en esta fase y no añadirlo a filtros públicos salvo petición explícita.
+
+Antes de pruebas contra base de datos real, usar entorno de desarrollo/staging o copia; no ejecutar importaciones destructivas. La regla vigente sigue siendo append-only: las entidades existentes se registran como repetidas y no se sobrescriben.
+
+2026-06-26 Executor:
+
+- El usuario confirmó que `Tipo Entidad2` debe añadirse como subtipo secundario de entidad y mostrarse solo en la ficha pública, con menor jerarquía visual que el tipo principal.
+- Implementado el Paso 1.
+- `docs/excel-field-mapping.md` ahora referencia `Listado Entidades 20260608.xlsx` como estructura vigente.
+- Actualizado el mapeo documentado de `Tipo Entidad2`: será subtipo secundario, consultable/editable en admin y visible en ficha pública, sin cambiar el filtro principal.
+- Añadido `tests/excel_contract.php` para validar el contrato del Excel final: hoja `ENTIDADES`, 41 registros, 69 columnas, cabeceras exactas, duplicados de `Teléfono1`/`Teléfono2`, 35 enlaces Maps, alias `Tipo Entidad`, alias `Tipo Entidad Complementaria` y teléfonos de contacto por posición.
+- Añadido script Composer `test:excel-contract`.
+- Verificación ejecutada: `php -l tests/excel_contract.php`, `composer test:excel-contract`, `composer audit --no-dev` y `git diff --check` correctos.
+- Solicitud de validación manual: ejecutar `composer test:excel-contract` en el entorno local con el Excel final disponible. Si pasa, el Planner puede marcar el Paso 1 como completado y autorizar el Paso 2.
+
+2026-06-26 Executor:
+
+- El usuario indicó que no tiene acceso SSH ahora mismo y autorizó continuar sin la validación manual del Paso 1.
+- Implementado el Paso 2.
+- Añadida columna no destructiva `entities.entity_subtype` en `database/007_add_entity_subtype.sql`.
+- Actualizados `database/001_initial_schema.sql` y `database/schema-draft.sql` para nuevas instalaciones.
+- La importación Excel guarda `Tipo Entidad2`/`Tipo Entidad Complementaria` en `entities.entity_subtype`.
+- La previsualización de importación ahora devuelve `subtypes`, añade `subtype` en filas de muestra y muestra "Subtipos detectados" en `/admin/import`.
+- El formulario admin de entidad permite editar `Subtipo de entidad`.
+- El listado admin muestra el subtipo como dato secundario bajo el tipo.
+- La ficha pública muestra el subtipo bajo el nombre de la entidad con estilo secundario, sin añadirlo a filtros ni listados principales.
+- Verificación ejecutada: `php -l` en servicios/controlador/vistas modificadas, `composer test:excel-contract`, `composer audit --no-dev`, `git diff --check`, comprobación de esquema y comprobación directa de preview del Excel final. El preview detecta `subtypes={"Escuela":2}`.
+- Pendiente validación manual en Plesk: ejecutar `database/007_add_entity_subtype.sql`, importar o editar una entidad con subtipo y comprobar que se ve en ficha pública.
+
+2026-06-26 Executor:
+
+- Implementado el Paso 3.
+- `GoogleMapsCoordinateExtractor` ahora usa timeout de conexión de 4 segundos y timeout total de 8 segundos para evitar bloqueos largos por enlaces de Maps que no respondan.
+- `EntityImportService::replaceFacilities()` ahora devuelve avisos de geolocalización por instalación.
+- `EntityImportService::importRow()` añade esos avisos a `import_rows.warnings` antes de registrar la fila.
+- Si una URL de Google Maps falla, lanza excepción o no contiene coordenadas parseables, la instalación se guarda igualmente con `google_maps_url`, `latitude = NULL`, `longitude = NULL` y `geocoding_status = pending`.
+- Si resuelve coordenadas, se guarda con `geocoding_status = resolved`.
+- El parseo existente cubre formatos `Nombre https://maps.app.goo.gl/...` y `Municipio: Nombre https://maps.app.goo.gl/...`; se mantiene el municipio de la entidad como fallback.
+- Verificación ejecutada: `php -l` en servicios afectados, `composer test:excel-contract`, `composer audit --no-dev`, `git diff --check` y prueba controlada de los 35 enlaces únicos del Excel final. Resultado: `unique_maps_urls=35 resolved=35 failed=0`.
+- Pendiente validación manual en Plesk: importar el Excel final tras aplicar la migración de subtipo y revisar que las instalaciones aparecen como `resolved` o `pending` sin bloquear la importación.
+
+2026-06-26 Executor:
+
+- El usuario validó que el Paso 4 y el listado funcionan en Plesk, pero detectó que el GEO de entidades queda `pending` aunque las instalaciones asociadas estén `resolved`.
+- Causa: el Excel aporta coordenadas a través de instalaciones, no de entidad; el importador estaba resolviendo `facilities` pero no propagaba una ubicación de referencia a `entities`.
+- Corrección aplicada: tras importar instalaciones, `EntityImportService` sincroniza la entidad con la primera instalación geolocalizada por `entity_facilities.sort_order`, copiando `latitude`, `longitude` y `geocoding_status = resolved`.
+- Para evitar marcadores duplicados en ficha pública, `EntityController` ahora usa marcadores de instalaciones cuando existen y solo usa coordenadas directas de entidad como fallback.
+- Añadido `database/008_backfill_entity_geo_from_facilities.sql` para corregir entidades ya importadas en Plesk sin sobrescribir coordenadas manuales existentes.
+- Verificación ejecutada: `php -l` en archivos afectados, `composer test:excel-contract`, `composer audit --no-dev`, `git diff --check` y comprobación de existencia de SQL `007`/`008`.
+- Pendiente validación manual en Plesk: ejecutar el SQL `008`, refrescar listado de entidades y comprobar que las que tienen instalaciones resueltas pasan a GEO `resolved`.
+
+### Lessons
+
+- En OpenSpout dentro de este proyecto, las filas se leen con `$row->toArray()`. No usar `$row->getCells()`, porque no existe en la versión instalada.
+- Los enlaces cortos `maps.app.goo.gl` del Excel final 20260608 pueden resolverse con el extractor actual, pero la importación debe tolerar fallos de red y conservar la URL con estado pendiente.
+- El alias `Tipo Entidad Complementaria` solo aparece cuando `Tipo Entidad2` tiene valor; las pruebas deben validar una fila con subtipo informado, no asumir que la primera fila lo trae.
+- `Tipo Entidad2` queda como `entities.entity_subtype`: subtipo secundario visible solo en ficha pública/admin, no en filtros públicos.
+- Los fallos de geolocalización en instalaciones no deben convertir la fila en error: se guardan como warning y quedan pendientes de revisión manual.
+- El estado GEO de entidades debe derivarse de la primera instalación resuelta cuando el Excel no trae coordenadas propias de entidad.
+
+---
+
+## 2026-07-06 — Executor: ajustes de identidad pública solicitados por cliente
+
+### Background and Motivation
+
+La cliente solicita tres ajustes de identidad y copy público:
+
+- El favicon no debe usar el logo completo porque se deforma y pierde legibilidad; debe usar el símbolo.
+- Las páginas interiores deben mantener el faldón institucional para reforzar identidad.
+- En las fichas, el bloque "Instalaciones" debe llamarse "Instalaciones / Espacios de práctica" porque algunos espacios no son instalaciones formales.
+
+### Current Status / Progress Tracking
+
+Executor completado:
+
+- Se confirmó que `public/assets/images/favicon.png` era el logo completo comprimido en 64x64.
+- No se encontró un archivo independiente llamado símbolo; se regeneró `public/assets/images/favicon.png` con el escudo/símbolo presente en el asset de marca disponible.
+- Se añadió footer institucional a páginas públicas interiores que no lo tenían: resultados y ficha de entidad.
+- Se cambió el rótulo público de ficha a "Instalaciones / Espacios de práctica".
+- Verificación ejecutada: `php -l app/Views/search-results.php`, `php -l app/Views/entity-show.php` y `composer audit --no-dev` correctos.
+
+### Executor's Feedback or Assistance Requests
+
+- Si la cliente tenía otro símbolo adjunto distinto al escudo de la marca DXT, debe facilitar el archivo para sustituir `public/assets/images/favicon.png`.

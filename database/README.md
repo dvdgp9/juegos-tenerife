@@ -9,6 +9,7 @@ Los archivos SQL de esta carpeta se entregan para revisión y ejecución manual 
 - `001_initial_schema.sql`: esquema inicial ejecutable.
 - `002_seed_reference_data.sql`: datos de referencia.
 - `003_seed_superadmin.sql`: usuario superadmin inicial.
+- `004_*` y posteriores: migraciones incrementales para bases ya creadas. Ejecutar en orden numérico.
 
 ## Convención
 

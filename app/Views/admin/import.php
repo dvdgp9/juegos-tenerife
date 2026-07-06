@@ -67,6 +67,16 @@
             <?php endif; ?>
 
             <div class="preview-grid">
+                <?php if (!empty($preview['subtypes'])): ?>
+                    <article>
+                        <h3>Subtipos detectados</h3>
+                        <ul>
+                            <?php foreach ($preview['subtypes'] as $name => $count): ?>
+                                <li><?= htmlspecialchars((string) $name, ENT_QUOTES, 'UTF-8') ?> <span><?= (int) $count ?></span></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </article>
+                <?php endif; ?>
                 <article>
                     <h3>Modalidades detectadas</h3>
                     <ul>
@@ -91,6 +101,7 @@
                         <tr>
                             <th>Fila</th>
                             <th>Tipo</th>
+                            <th>Subtipo</th>
                             <th>Entidad</th>
                             <th>Municipio</th>
                             <th>Modalidades</th>
@@ -101,6 +112,7 @@
                             <tr>
                                 <td><?= (int) $row['row'] ?></td>
                                 <td><?= htmlspecialchars((string) $row['type'], ENT_QUOTES, 'UTF-8') ?></td>
+                                <td><?= htmlspecialchars((string) ($row['subtype'] ?? ''), ENT_QUOTES, 'UTF-8') ?></td>
                                 <td><?= htmlspecialchars((string) $row['name'], ENT_QUOTES, 'UTF-8') ?></td>
                                 <td><?= htmlspecialchars((string) $row['municipality'], ENT_QUOTES, 'UTF-8') ?></td>
                                 <td><?= htmlspecialchars(implode(', ', $row['modalities']), ENT_QUOTES, 'UTF-8') ?></td>

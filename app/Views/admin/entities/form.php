@@ -98,6 +98,11 @@ require dirname(__DIR__) . '/partials/layout-start.php';
                     </select>
                 </div>
                 <div class="field">
+                    <label for="entity_subtype">Subtipo de entidad</label>
+                    <input id="entity_subtype" name="entity_subtype" type="text" value="<?= $value('entity_subtype') ?>" placeholder="Escuela">
+                    <small>Dato secundario de la ficha pública. No afecta al filtro principal.</small>
+                </div>
+                <div class="field">
                     <label for="municipality_id">Municipio</label>
                     <select id="municipality_id" name="municipality_id">
                         <option value="">Sin municipio</option>

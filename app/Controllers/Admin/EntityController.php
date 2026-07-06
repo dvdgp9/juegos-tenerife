@@ -169,6 +169,7 @@ final class EntityController extends AdminController
                 e.id,
                 e.name,
                 e.slug,
+                e.entity_subtype,
                 e.is_published,
                 e.geocoding_status,
                 et.name AS entity_type,
@@ -180,7 +181,7 @@ final class EntityController extends AdminController
              LEFT JOIN entity_modalities em ON em.entity_id = e.id
              LEFT JOIN modalities mo ON mo.id = em.modality_id
              WHERE e.deleted_at IS NULL
-             GROUP BY e.id, e.name, e.slug, e.is_published, e.geocoding_status, et.name, m.name
+             GROUP BY e.id, e.name, e.slug, e.entity_subtype, e.is_published, e.geocoding_status, et.name, m.name
              ORDER BY e.updated_at DESC, e.name ASC
              LIMIT 200"
         );
@@ -225,6 +226,7 @@ final class EntityController extends AdminController
             'municipality_id' => null,
             'name' => '',
             'slug' => '',
+            'entity_subtype' => '',
             'address' => '',
             'locality' => '',
             'postal_code' => '',
@@ -351,7 +353,7 @@ final class EntityController extends AdminController
             if ($entityId === null) {
                 $statement = $pdo->prepare(
                     'INSERT INTO entities (
-                        entity_type_id, municipality_id, name, slug, address, locality, postal_code,
+                        entity_type_id, municipality_id, name, slug, entity_subtype, address, locality, postal_code,
                         google_maps_url, latitude, longitude, geocoding_status, website_url, history,
                         corporate_principles, sports_values, total_teams, teams_by_gender, teams_by_age,
                         total_practitioners, female_practitioners, male_practitioners, training_practices,
@@ -361,7 +363,7 @@ final class EntityController extends AdminController
                         joined_educar_entrenando, supports_educational_needs, supports_disability,
                         source_reference, is_published
                     ) VALUES (
-                        :entity_type_id, :municipality_id, :name, :slug, :address, :locality, :postal_code,
+                        :entity_type_id, :municipality_id, :name, :slug, :entity_subtype, :address, :locality, :postal_code,
                         :google_maps_url, :latitude, :longitude, :geocoding_status, :website_url, :history,
                         :corporate_principles, :sports_values, :total_teams, :teams_by_gender, :teams_by_age,
                         :total_practitioners, :female_practitioners, :male_practitioners, :training_practices,
@@ -382,6 +384,7 @@ final class EntityController extends AdminController
                          municipality_id = :municipality_id,
                          name = :name,
                          slug = :slug,
+                         entity_subtype = :entity_subtype,
                          address = :address,
                          locality = :locality,
                          postal_code = :postal_code,
@@ -801,6 +804,7 @@ final class EntityController extends AdminController
             'municipality_id' => $this->intOrNull($entity['municipality_id'] ?? null),
             'name' => trim((string) $entity['name']),
             'slug' => Slugger::slug((string) ($entity['slug'] ?: $entity['name'])),
+            'entity_subtype' => $this->nullable($entity['entity_subtype'] ?? null),
             'address' => $this->nullable($entity['address'] ?? null),
             'locality' => $this->nullable($entity['locality'] ?? null),
             'postal_code' => $this->nullable($entity['postal_code'] ?? null),

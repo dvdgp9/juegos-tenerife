@@ -1,7 +1,7 @@
 # Mapeo del Excel de entidades
 
 Archivo revisado inicialmente: `Listado Entidades Prueba 20260522.xlsx`.
-Archivo definitivo revisado: `Listado Entidades Def.xlsx`.
+Archivo vigente para importación: `Listado Entidades 20260608.xlsx`.
 
 ## Resumen
 
@@ -88,7 +88,7 @@ Archivo definitivo revisado: `Listado Entidades Def.xlsx`.
 ## Mapeo propuesto
 
 - `Tipo Entidad` o `Tipo Entidad1` -> `entity_types.name`.
-- `Tipo Entidad2` -> se conserva en el dato bruto de importación como tipo complementario; no cambia el filtro público principal porque el modelo actual tiene un único tipo de entidad.
+- `Tipo Entidad2` -> subtipo secundario de entidad. Debe añadirse al modelo como dato consultable, editable en admin y visible solo en la ficha pública con menor jerarquía visual que el tipo principal. No cambia el filtro público principal.
 - `Nombre Entidad` -> `entities.name`.
 - `Domicilio`, `Localidad`, `Municipio`, `Código Postal` -> campos de dirección de `entities`.
 - `Modalidad1` a `Modalidad4` -> `modalities` + `entity_modalities`.

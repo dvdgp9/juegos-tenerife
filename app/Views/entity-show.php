@@ -117,6 +117,9 @@ $protocolLabel = static function (?string $status): string {
                     <?= htmlspecialchars((string) ($entity['entity_type'] ?? 'Entidad'), ENT_QUOTES, 'UTF-8') ?>
                 </p>
                 <h1><?= htmlspecialchars((string) $entity['name'], ENT_QUOTES, 'UTF-8') ?></h1>
+                <?php if (!empty($entity['entity_subtype'])): ?>
+                    <p class="entity-subtype"><?= htmlspecialchars((string) $entity['entity_subtype'], ENT_QUOTES, 'UTF-8') ?></p>
+                <?php endif; ?>
                 <?php if ($modalities !== []): ?>
                     <p class="modality-list">
                         <?php
@@ -240,7 +243,7 @@ $protocolLabel = static function (?string $status): string {
                                 <article>
                                     <span>Espacios deportivos</span>
                                     <strong><?= count($facilities) ?></strong>
-                                    <small>Instalaciones vinculadas</small>
+                                    <small>Instalaciones / espacios de práctica vinculados</small>
                                 </article>
                             <?php endif; ?>
                             <?php if (!empty($entity['training_days']) || !empty($entity['training_hours'])): ?>
@@ -258,7 +261,7 @@ $protocolLabel = static function (?string $status): string {
 
                 <?php if ($facilities !== []): ?>
                     <section class="detail-section">
-                        <p class="eyebrow">Instalaciones</p>
+                        <p class="eyebrow">Instalaciones / Espacios de práctica</p>
                         <ul>
                             <?php foreach ($facilities as $f): ?>
                                 <li>
@@ -378,5 +381,15 @@ $protocolLabel = static function (?string $status): string {
             </aside>
         </section>
     </main>
+
+    <footer class="site-footer">
+        <strong>Área de Deportes Cabildo de Tenerife</strong>
+        <nav aria-label="Enlaces legales">
+            <a href="#">Aviso Legal</a>
+            <a href="#">Privacidad</a>
+            <a href="#">Cookies</a>
+            <a href="#">Accesibilidad</a>
+        </nav>
+    </footer>
 </body>
 </html>

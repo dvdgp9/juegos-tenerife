@@ -1003,6 +1003,15 @@ button:focus-visible {
     font-weight: 780;
 }
 
+.entity-subtype {
+    color: var(--color-muted);
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    margin: -0.35rem 0 0;
+    text-transform: uppercase;
+}
+
 .contact-list {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -178,5 +178,15 @@ $modalityInitials = static function (string $name): string {
             </div>
         </section>
     </main>
+
+    <footer class="site-footer">
+        <strong>Área de Deportes Cabildo de Tenerife</strong>
+        <nav aria-label="Enlaces legales">
+            <a href="#">Aviso Legal</a>
+            <a href="#">Privacidad</a>
+            <a href="#">Cookies</a>
+            <a href="#">Accesibilidad</a>
+        </nav>
+    </footer>
 </body>
 </html>

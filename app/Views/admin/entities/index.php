@@ -55,7 +55,12 @@
                             <strong><?= htmlspecialchars((string) $entity['name'], ENT_QUOTES, 'UTF-8') ?></strong>
                             <small>/entidades/<?= htmlspecialchars((string) $entity['slug'], ENT_QUOTES, 'UTF-8') ?></small>
                         </td>
-                        <td><span class="admin-muted-text"><?= htmlspecialchars((string) ($entity['entity_type'] ?? 'Sin tipo'), ENT_QUOTES, 'UTF-8') ?></span></td>
+                        <td>
+                            <span class="admin-muted-text"><?= htmlspecialchars((string) ($entity['entity_type'] ?? 'Sin tipo'), ENT_QUOTES, 'UTF-8') ?></span>
+                            <?php if (!empty($entity['entity_subtype'])): ?>
+                                <small><?= htmlspecialchars((string) $entity['entity_subtype'], ENT_QUOTES, 'UTF-8') ?></small>
+                            <?php endif; ?>
+                        </td>
                         <td><span class="admin-muted-text"><?= htmlspecialchars((string) ($entity['municipality'] ?? 'Sin municipio'), ENT_QUOTES, 'UTF-8') ?></span></td>
                         <td>
                             <?php if ($modalities === []): ?>

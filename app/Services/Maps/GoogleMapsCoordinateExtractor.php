@@ -49,7 +49,8 @@ final class GoogleMapsCoordinateExtractor
             CURLOPT_HEADER => false,
             CURLOPT_NOBODY => false,
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => 12,
+            CURLOPT_CONNECTTIMEOUT => 4,
+            CURLOPT_TIMEOUT => 8,
             CURLOPT_USERAGENT => 'JuegosTenerifeCenso/1.0',
         ]);
 
@@ -91,4 +92,3 @@ final class GoogleMapsCoordinateExtractor
         return null;
     }
 }
-

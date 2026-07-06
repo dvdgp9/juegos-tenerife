@@ -24,20 +24,6 @@ final class EntityController
         }
 
         $mapPoints = [];
-        if ($entity['latitude'] !== null && $entity['longitude'] !== null) {
-            $modalityNames = [];
-            foreach ($entity['modalities'] as $m) {
-                $modalityNames[] = $m['name'];
-            }
-            $mapPoints[] = [
-                'title' => $entity['name'],
-                'municipality' => $entity['municipality'] ?? '',
-                'modalities' => implode(', ', $modalityNames),
-                'lat' => (float) $entity['latitude'],
-                'lng' => (float) $entity['longitude'],
-                'url' => '#',
-            ];
-        }
         foreach ($entity['facilities'] as $facility) {
             if ($facility['latitude'] === null || $facility['longitude'] === null) {
                 continue;
@@ -48,6 +34,21 @@ final class EntityController
                 'modalities' => $facility['label'] ?? '',
                 'lat' => (float) $facility['latitude'],
                 'lng' => (float) $facility['longitude'],
+                'url' => '#',
+            ];
+        }
+
+        if ($mapPoints === [] && $entity['latitude'] !== null && $entity['longitude'] !== null) {
+            $modalityNames = [];
+            foreach ($entity['modalities'] as $m) {
+                $modalityNames[] = $m['name'];
+            }
+            $mapPoints[] = [
+                'title' => $entity['name'],
+                'municipality' => $entity['municipality'] ?? '',
+                'modalities' => implode(', ', $modalityNames),
+                'lat' => (float) $entity['latitude'],
+                'lng' => (float) $entity['longitude'],
                 'url' => '#',
             ];
         }
