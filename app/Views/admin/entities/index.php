@@ -26,7 +26,7 @@
 <?php if (!empty($entities)): ?>
     <div class="admin-table-tools">
         <div>
-            <strong><?= count($entities) ?> entidades</strong>
+            <strong><?= count($entities) ?> entidad<?= count($entities) === 1 ? '' : 'es' ?></strong>
             <span>Ordenadas por última actualización</span>
         </div>
     </div>
@@ -80,11 +80,11 @@
                         <td><span class="status-badge <?= $isPublished ? 'success' : 'draft' ?>"><?= $isPublished ? 'Publicada' : 'Borrador' ?></span></td>
                         <td>
                             <div class="admin-row-actions">
-                                <a class="admin-action-button primary" href="/admin/entities/<?= (int) $entity['id'] ?>/edit">Editar</a>
-                                <a class="admin-action-button" href="/entidades/<?= htmlspecialchars((string) $entity['slug'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">Ver ficha</a>
+                                <a class="admin-action-button primary" href="/admin/entities/<?= (int) $entity['id'] ?>/edit"><?= admin_icon('edit') ?>Editar</a>
+                                <a class="admin-action-button" href="/entidades/<?= htmlspecialchars((string) $entity['slug'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= admin_icon('external') ?>Ver ficha</a>
                                 <form class="admin-inline-form" action="/admin/entities/<?= (int) $entity['id'] ?>/delete" method="post" data-confirm="Se archivará &quot;<?= htmlspecialchars((string) $entity['name'], ENT_QUOTES, 'UTF-8') ?>&quot;. Dejará de verse en la web pública y en este listado. ¿Continuar?">
                                     <input type="hidden" name="_csrf" value="<?= htmlspecialchars((string) $csrf, ENT_QUOTES, 'UTF-8') ?>">
-                                    <button class="admin-action-button danger" type="submit">Archivar</button>
+                                    <button class="admin-action-button danger" type="submit"><?= admin_icon('archive') ?>Archivar</button>
                                 </form>
                             </div>
                         </td>

@@ -19,7 +19,7 @@
 <?php else: ?>
     <div class="admin-table-tools">
         <div>
-            <strong><?= count($facilities) ?> instalaciones</strong>
+            <strong><?= count($facilities) ?> instalaci<?= count($facilities) === 1 ? 'ón' : 'ones' ?></strong>
             <span>Ordenadas por última actualización</span>
         </div>
     </div>
@@ -63,10 +63,10 @@
                         <td><span class="status-badge <?= ((string) $facility['geocoding_status']) === 'resolved' ? 'success' : 'neutral' ?>"><?= htmlspecialchars((string) ($facility['geocoding_status'] ?? 'pending'), ENT_QUOTES, 'UTF-8') ?></span></td>
                         <td>
                             <div class="admin-row-actions">
-                                <a class="admin-action-button primary" href="/admin/facilities/<?= (int) $facility['id'] ?>/edit">Editar</a>
+                                <a class="admin-action-button primary" href="/admin/facilities/<?= (int) $facility['id'] ?>/edit"><?= admin_icon('edit') ?>Editar</a>
                                 <form class="admin-inline-form" action="/admin/facilities/<?= (int) $facility['id'] ?>/delete" method="post" data-confirm="Se archivará &quot;<?= htmlspecialchars((string) $facility['name'], ENT_QUOTES, 'UTF-8') ?>&quot;. Dejará de aparecer en fichas y mapas públicos. ¿Continuar?">
                                     <input type="hidden" name="_csrf" value="<?= htmlspecialchars((string) $csrf, ENT_QUOTES, 'UTF-8') ?>">
-                                    <button class="admin-action-button danger" type="submit">Archivar</button>
+                                    <button class="admin-action-button danger" type="submit"><?= admin_icon('archive') ?>Archivar</button>
                                 </form>
                             </div>
                         </td>

@@ -73,7 +73,7 @@ require dirname(__DIR__) . '/partials/layout-start.php';
                         <td><span class="admin-muted-text"><?= $h($formatDate($adminUser['last_login_at'] ?? null)) ?></span></td>
                         <td>
                             <div class="admin-row-actions">
-                                <a class="admin-action-button primary" href="/admin/users/<?= (int) $adminUser['id'] ?>/edit">Editar</a>
+                                <a class="admin-action-button primary" href="/admin/users/<?= (int) $adminUser['id'] ?>/edit"><?= admin_icon('edit') ?>Editar</a>
                             </div>
                         </td>
                     </tr>

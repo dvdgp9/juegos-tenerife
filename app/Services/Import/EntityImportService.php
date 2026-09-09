@@ -13,10 +13,6 @@ use RuntimeException;
 
 final class EntityImportService
 {
-    private const MUNICIPALITY_ALIASES = [
-        'la-laguna' => 'San Cristóbal de La Laguna',
-    ];
-
     private const KNOWN_MUNICIPALITIES = [
         'adeje',
         'arafo',
@@ -65,11 +61,13 @@ final class EntityImportService
 
     private ExcelPreviewService $excel;
     private GoogleMapsCoordinateExtractor $maps;
+    private EntityDuplicateFinder $duplicates;
 
-    public function __construct()
+    public function __construct(?EntityDuplicateFinder $duplicates = null)
     {
         $this->excel = new ExcelPreviewService();
         $this->maps = new GoogleMapsCoordinateExtractor();
+        $this->duplicates = $duplicates ?? new EntityDuplicateFinder();
     }
 
     /**
@@ -347,15 +345,7 @@ final class EntityImportService
 
     private function uniqueSlugForEntity(PDO $pdo, string $name, string $municipality): string
     {
-        $slug = Slugger::slug($name);
-        $duplicate = $pdo->prepare('SELECT COUNT(*) FROM entities WHERE slug = :slug AND name <> :name');
-        $duplicate->execute(['slug' => $slug, 'name' => $name]);
-
-        if ((int) $duplicate->fetchColumn() === 0) {
-            return $slug;
-        }
-
-        return Slugger::slug($name . '-' . $municipality);
+        return $this->duplicates->slugFor($pdo, $name, $municipality);
     }
 
     /**
@@ -385,41 +375,12 @@ final class EntityImportService
 
     private function findExistingEntityId(PDO $pdo, string $name, string $municipality, string $slug): ?int
     {
-        $existingBySlug = $this->findEntityIdBySlug($pdo, $slug);
-        if ($existingBySlug !== null) {
-            return $existingBySlug;
-        }
-
-        $municipality = $this->normalizeMunicipalityName($municipality);
-        $municipalitySlug = $municipality !== '' ? Slugger::slug($municipality) : null;
-
-        $statement = $pdo->prepare(
-            'SELECT e.id
-             FROM entities e
-             LEFT JOIN municipalities m ON m.id = e.municipality_id
-             WHERE LOWER(TRIM(e.name)) = LOWER(TRIM(:name))
-               AND (:municipality_slug_empty = 1 OR m.slug = :municipality_slug)
-               AND e.deleted_at IS NULL
-             ORDER BY e.id DESC
-             LIMIT 1'
-        );
-        $statement->execute([
-            'name' => $name,
-            'municipality_slug_empty' => $municipalitySlug === null ? 1 : 0,
-            'municipality_slug' => $municipalitySlug,
-        ]);
-        $id = $statement->fetchColumn();
-
-        return $id === false ? null : (int) $id;
+        return $this->duplicates->findExistingId($pdo, $name, $municipality, $slug);
     }
 
     private function findEntityIdBySlug(PDO $pdo, string $slug): ?int
     {
-        $statement = $pdo->prepare('SELECT id FROM entities WHERE slug = :slug LIMIT 1');
-        $statement->execute(['slug' => $slug]);
-        $id = $statement->fetchColumn();
-
-        return $id === false ? null : (int) $id;
+        return $this->duplicates->findIdBySlug($pdo, $slug);
     }
 
     /**
@@ -687,12 +648,7 @@ final class EntityImportService
 
     private function normalizeMunicipalityName(string $name): string
     {
-        $name = trim($name);
-        if ($name === '') {
-            return '';
-        }
-
-        return self::MUNICIPALITY_ALIASES[Slugger::slug($name)] ?? $name;
+        return $this->duplicates->normalizeMunicipalityName($name);
     }
 
     private function isKnownMunicipality(string $name): bool

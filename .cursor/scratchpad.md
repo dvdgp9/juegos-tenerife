@@ -1104,3 +1104,57 @@ Se montó base de datos local de pruebas `juegos_tenerife_test` en la MariaDB de
 - El registro de auditoría no debe poder tumbar la operación auditada: capturar cualquier excepción y seguir.
 - Los mensajes de error visibles no deben describir la infraestructura; el diagnóstico va al log del servidor.
 - `Slugger::slug()` depende de `iconv('ASCII//TRANSLIT')`, cuyo resultado cambia según el sistema: en macOS "Federación" produce `federaci-on-de-...`. En Linux/Plesk (glibc) suele resolverse como `federacion-de-...`. Conviene sustituirlo por un mapa de transliteración explícito para que los slugs públicos no dependan del servidor.
+
+---
+
+## 2026-09-09 — Executor: ajustes tras la primera importación real
+
+### Current Status / Progress Tracking
+
+La importación en producción funcionó: 51 filas, 12 creadas, 39 repetidas, 0 errores. El usuario pidió tres ajustes.
+
+1. Comprobación de repetidos en la previsualización:
+
+- Añadido `app/Services/Import/EntityDuplicateFinder.php` con la detección de duplicados (normalización de municipio, cálculo de slug, búsqueda por slug y por nombre+municipio).
+- `EntityImportService` delega en él en vez de tener la lógica duplicada, para que preview e importación no puedan divergir.
+- `ExcelPreviewService` devuelve ahora `entityRows` con fila, nombre y municipio de todos los registros, no solo de la muestra.
+- `ImportController::preview()` clasifica esas filas contra el censo y pasa `duplicateCheck` a la vista. Si la consulta falla, se muestra el aviso y la previsualización sigue funcionando.
+- La pantalla muestra "Se crearían / Repetidas / Sin nombre" y el listado de filas repetidas con el motivo.
+- La clasificación contempla también los repetidos dentro del propio Excel: si un nombre aparece dos veces, la primera se crearía y la segunda queda como repetida, igual que hace la importación.
+- El texto de confirmación anuncia las cifras reales, con singular y plural correctos.
+
+2. Estilo de la pantalla de importación:
+
+- El campo de subida se maqueta con `::file-selector-button` y caja punteada propia, sin JavaScript.
+- El titular del resumen baja a 1.25rem y las cifras suben a 1.5rem: el peso visual va al dato, no al rótulo.
+
+3. Botones de las tablas:
+
+- Añadido `app/Views/admin/partials/icons.php` con la función `admin_icon()`. Los SVG son trazados de Lucide (licencia ISC) incrustados en línea: sin CDN, sin dependencia nueva y sin petición extra.
+- Iconos en Editar, Ver ficha y Archivar de los cuatro listados del panel.
+- Botones más compactos: 0.79rem, altura mínima 30px, separación de 6px.
+- Corregidos los contadores en singular: "1 instalación" en vez de "1 instalaciones".
+
+### Verificación ejecutada
+
+Contra la base local `juegos_tenerife_test`, con un Excel generado para el caso:
+
+- Fila con nombre idéntico a una entidad existente → repetida.
+- Fila con el mismo nombre en distinta caja y con espacios sobrantes → repetida (confirma que la comparación normaliza).
+- Fila nueva → se crearía.
+- Fila repetida dentro del propio archivo → repetida, indicando la fila original.
+- Fila sin nombre → sin nombre.
+- Previsualización: 1 nueva, 3 repetidas, 1 sin nombre. Importación real: Creadas 1, Repetidas 3, Omitidas 1, Errores 0. **El preview coincide exactamente con el resultado.**
+- `import.completed` quedó registrado en `audit_logs` con el desglose correcto: es la parte que no se pudo probar en el Paso 9.
+- Las seis pantallas del panel responden 200 y renderizan los iconos.
+- Sin errores ni avisos PHP en el log del servidor. `php -l`, `git diff --check` y `composer audit --no-dev` limpios.
+
+### Executor's Feedback or Assistance Requests
+
+- La previsualización hace una consulta por fila para calcular el slug y buscar coincidencias. Con 51 filas es inmediato; si el censo creciera a varios miles de filas por importación habría que agrupar las consultas.
+
+### Lessons
+
+- La lógica de detección de duplicados debe vivir en un único sitio compartido por preview e importación: si se duplica, el preview acabaría prometiendo algo distinto de lo que hace la importación.
+- El preview debe contemplar los duplicados dentro del propio archivo, no solo contra la base de datos.
+- Para un puñado de iconos, incrustar los SVG en línea sale más barato que añadir una librería: sin dependencia, sin CDN y sin petición extra.

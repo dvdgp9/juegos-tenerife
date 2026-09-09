@@ -101,6 +101,7 @@ final class ExcelPreviewService
             foreach ($reader->getSheetIterator() as $sheet) {
                 $headers = [];
                 $sampleRows = [];
+                $entityRows = [];
                 $records = 0;
                 $warnings = [];
                 $modalities = [];
@@ -160,6 +161,12 @@ final class ExcelPreviewService
                         }
                     }
 
+                    $entityRows[] = [
+                        'row' => $rowIndex,
+                        'name' => trim($rowMap['Nombre Entidad'] ?? ''),
+                        'municipality' => $municipality,
+                    ];
+
                     if (count($sampleRows) < $sampleLimit) {
                         $sampleRows[] = [
                             'row' => $rowIndex,
@@ -199,6 +206,7 @@ final class ExcelPreviewService
                     'headers' => $headers,
                     'records' => $records,
                     'sampleRows' => $sampleRows,
+                    'entityRows' => $entityRows,
                     'warnings' => array_values(array_unique($warnings)),
                     'duplicateHeaders' => $duplicateHeaders,
                     'missingHeaders' => $missingHeaders,

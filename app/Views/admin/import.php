@@ -1,3 +1,9 @@
+<?php
+/** @var array<string,mixed>|null $duplicateCheck */
+/** @var ?string $duplicateCheckError */
+$duplicateCheck = $duplicateCheck ?? null;
+$duplicateCheckError = $duplicateCheckError ?? null;
+?>
 <?php require __DIR__ . '/partials/layout-start.php'; ?>
 
 <section class="admin-page-intro">
@@ -11,9 +17,10 @@
 <section class="import-layout">
     <form class="admin-import-panel" action="/admin/import/preview" method="post" enctype="multipart/form-data">
         <input type="hidden" name="_csrf" value="<?= htmlspecialchars((string) $csrf, ENT_QUOTES, 'UTF-8') ?>">
-        <div class="field">
+        <div class="field file-field">
             <label for="excel">Archivo Excel</label>
             <input id="excel" name="excel" type="file" accept=".xlsx" required>
+            <small class="field-help">Formato .xlsx. Se comparará con el censo actual antes de guardar nada.</small>
         </div>
         <button class="button primary" type="submit">Previsualizar</button>
     </form>
@@ -64,6 +71,41 @@
                         <?php endforeach; ?>
                     </ul>
                 </div>
+            <?php endif; ?>
+
+            <?php if ($duplicateCheckError !== null): ?>
+                <div class="alert error" role="alert"><?= htmlspecialchars($duplicateCheckError, ENT_QUOTES, 'UTF-8') ?></div>
+            <?php endif; ?>
+
+            <?php if (is_array($duplicateCheck)): ?>
+                <section class="duplicate-check" aria-labelledby="duplicate-title">
+                    <div class="duplicate-check-head">
+                        <h3 id="duplicate-title">Comparación con el censo actual</h3>
+                        <dl>
+                            <div><dt>Se crearían</dt><dd><?= (int) $duplicateCheck['new'] ?></dd></div>
+                            <div><dt>Repetidas</dt><dd><?= (int) $duplicateCheck['duplicate'] ?></dd></div>
+                            <div><dt>Sin nombre</dt><dd><?= (int) $duplicateCheck['skipped'] ?></dd></div>
+                        </dl>
+                    </div>
+
+                    <?php if ($duplicateCheck['duplicate'] === 0): ?>
+                        <p class="duplicate-check-note">Ninguna fila coincide con entidades ya existentes: todas se darían de alta.</p>
+                    <?php else: ?>
+                        <p class="duplicate-check-note">Estas filas no se importarán y no modificarán los datos actuales:</p>
+                        <ul class="duplicate-list">
+                            <?php foreach ($duplicateCheck['duplicates'] as $duplicate): ?>
+                                <li>
+                                    <span class="duplicate-row">Fila <?= (int) $duplicate['row'] ?></span>
+                                    <strong><?= htmlspecialchars((string) $duplicate['name'], ENT_QUOTES, 'UTF-8') ?></strong>
+                                    <?php if ($duplicate['municipality'] !== ''): ?>
+                                        <span><?= htmlspecialchars((string) $duplicate['municipality'], ENT_QUOTES, 'UTF-8') ?></span>
+                                    <?php endif; ?>
+                                    <em><?= htmlspecialchars((string) $duplicate['reason'], ENT_QUOTES, 'UTF-8') ?></em>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </section>
             <?php endif; ?>
 
             <div class="preview-grid">
@@ -124,7 +166,28 @@
 
             <form class="admin-confirm-row" action="/admin/import/confirm" method="post">
                 <input type="hidden" name="_csrf" value="<?= htmlspecialchars((string) $csrf, ENT_QUOTES, 'UTF-8') ?>">
-                <p>Confirma solo si el archivo está revisado. Las filas repetidas no cambiarán información existente.</p>
+                <?php if (is_array($duplicateCheck)): ?>
+                    <?php
+                    $newCount = (int) $duplicateCheck['new'];
+                    $duplicateCount = (int) $duplicateCheck['duplicate'];
+                    ?>
+                    <p>
+                        <?php if ($newCount === 0): ?>
+                            No se creará ninguna entidad nueva.
+                        <?php elseif ($newCount === 1): ?>
+                            Al confirmar se creará <strong>1</strong> entidad nueva.
+                        <?php else: ?>
+                            Al confirmar se crearán <strong><?= $newCount ?></strong> entidades nuevas.
+                        <?php endif; ?>
+                        <?php if ($duplicateCount === 1): ?>
+                            La fila repetida se registrará sin tocar los datos existentes.
+                        <?php elseif ($duplicateCount > 1): ?>
+                            Las <strong><?= $duplicateCount ?></strong> filas repetidas se registrarán sin tocar los datos existentes.
+                        <?php endif; ?>
+                    </p>
+                <?php else: ?>
+                    <p>Confirma solo si el archivo está revisado. Las filas repetidas no cambiarán información existente.</p>
+                <?php endif; ?>
                 <button class="button primary" type="submit">Confirmar importación</button>
             </form>
         </section>

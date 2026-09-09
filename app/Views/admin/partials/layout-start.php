@@ -7,6 +7,7 @@ $title = $title ?? 'Panel de administración';
 $user = $user ?? null;
 $flash = $flash ?? null;
 $activeNav = $activeNav ?? '';
+require_once __DIR__ . '/icons.php';
 $adminNav = [
     ['href' => '/admin', 'label' => 'Panel', 'key' => 'dashboard'],
     ['href' => '/admin/entities', 'label' => 'Entidades', 'key' => 'entities'],

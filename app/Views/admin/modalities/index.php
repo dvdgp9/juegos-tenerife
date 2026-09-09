@@ -19,7 +19,7 @@
 <?php else: ?>
     <div class="admin-table-tools">
         <div>
-            <strong><?= count($modalities) ?> modalidades</strong>
+            <strong><?= count($modalities) ?> modalidad<?= count($modalities) === 1 ? '' : 'es' ?></strong>
             <span>Destacadas primero, después por orden</span>
         </div>
     </div>
@@ -60,8 +60,8 @@
                         <td><span class="status-badge <?= ((int) $modality['is_featured']) === 1 ? 'success' : 'neutral' ?>"><?= ((int) $modality['is_featured']) === 1 ? 'Destacada' : 'Normal' ?></span></td>
                         <td>
                             <div class="admin-row-actions">
-                                <a class="admin-action-button primary" href="/admin/modalities/<?= (int) $modality['id'] ?>/edit">Editar</a>
-                                <a class="admin-action-button" href="/modalidades/<?= htmlspecialchars((string) $modality['slug'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">Ver ficha</a>
+                                <a class="admin-action-button primary" href="/admin/modalities/<?= (int) $modality['id'] ?>/edit"><?= admin_icon('edit') ?>Editar</a>
+                                <a class="admin-action-button" href="/modalidades/<?= htmlspecialchars((string) $modality['slug'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener"><?= admin_icon('external') ?>Ver ficha</a>
                             </div>
                         </td>
                     </tr>

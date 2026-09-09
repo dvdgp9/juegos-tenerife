@@ -8,6 +8,7 @@ use JuegosTenerife\Core\Csrf;
 use JuegosTenerife\Core\Response;
 use JuegosTenerife\Core\Session;
 use JuegosTenerife\Core\View;
+use JuegosTenerife\Services\Import\EntityDuplicateFinder;
 use JuegosTenerife\Services\Import\ExcelPreviewService;
 use JuegosTenerife\Services\Import\EntityImportService;
 use RuntimeException;
@@ -28,6 +29,8 @@ final class ImportController extends AdminController
             'csrf' => Csrf::token(),
             'flash' => $this->consumeFlash(),
             'preview' => null,
+            'duplicateCheck' => null,
+            'duplicateCheckError' => null,
             'summary' => null,
             'error' => null,
         ]);
@@ -80,6 +83,16 @@ final class ImportController extends AdminController
         ];
         Session::put('pending_import', $preview['file']);
 
+        // Compara el archivo con el censo actual para poder anticipar qué
+        // filas se crearían y cuáles quedarían como repetidas.
+        $duplicateCheck = null;
+        $duplicateCheckError = null;
+        try {
+            $duplicateCheck = (new EntityDuplicateFinder())->classify($preview['entityRows'] ?? []);
+        } catch (\Throwable $throwable) {
+            $duplicateCheckError = 'No se pudo comprobar qué entidades ya existen: ' . $throwable->getMessage();
+        }
+
         return View::render('admin/import', [
             'title' => 'Importar Excel',
             'activeNav' => 'import',
@@ -87,6 +100,8 @@ final class ImportController extends AdminController
             'csrf' => Csrf::token(),
             'flash' => null,
             'preview' => $preview,
+            'duplicateCheck' => $duplicateCheck,
+            'duplicateCheckError' => $duplicateCheckError,
             'summary' => null,
             'error' => null,
         ]);
@@ -143,6 +158,8 @@ final class ImportController extends AdminController
             'csrf' => Csrf::token(),
             'flash' => null,
             'preview' => null,
+            'duplicateCheck' => null,
+            'duplicateCheckError' => null,
             'summary' => $summary,
             'error' => null,
         ]);
@@ -157,6 +174,8 @@ final class ImportController extends AdminController
             'csrf' => Csrf::token(),
             'flash' => null,
             'preview' => null,
+            'duplicateCheck' => null,
+            'duplicateCheckError' => null,
             'summary' => null,
             'error' => $error,
         ]);
