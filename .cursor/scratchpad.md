@@ -1158,3 +1158,25 @@ Contra la base local `juegos_tenerife_test`, con un Excel generado para el caso:
 - La lógica de detección de duplicados debe vivir en un único sitio compartido por preview e importación: si se duplica, el preview acabaría prometiendo algo distinto de lo que hace la importación.
 - El preview debe contemplar los duplicados dentro del propio archivo, no solo contra la base de datos.
 - Para un puñado de iconos, incrustar los SVG en línea sale más barato que añadir una librería: sin dependencia, sin CDN y sin petición extra.
+
+---
+
+## 2026-09-09 — Executor: formulario de usuaria descuadrado y mostrar contraseña
+
+### Current Status / Progress Tracking
+
+Causa del descuadre: en `.form-grid`, las celdas se estiraban a la altura de la fila. Un campo con `field-help` es más alto que su vecino, así que el `select` de "Permiso" crecía hasta 46px + el sobrante y su etiqueta quedaba descolgada respecto a "Usuario". Lo mismo pasaba en la fila de contraseñas.
+
+- Añadido `align-self: start` a las celdas de `.form-grid` y `align-content: start` en `.field`: cada campo conserva su altura natural.
+- La corrección es global, así que también alinea los formularios de entidad, instalación y modalidad, que tenían el mismo defecto.
+- Añadido "Mostrar contraseña": un checkbox que controla los dos campos a la vez mediante `data-toggle-password` en `admin.js`. Sin JS inline y con el CSS en `styles.css`.
+- El toggle aparece tanto al crear como al editar usuaria.
+
+### Verificación ejecutada
+
+- Medido en el navegador: "Usuario" y "Permiso" comparten `top` (532) y altura (46). "Contraseña" y "Repetir contraseña" comparten `top` (919) y altura (46).
+- Formulario de entidad: 62 controles, ninguno con altura anómala; los textareas conservan su altura propia (175/150/150).
+- Mostrar contraseña: alterna `password` → `text` → `password` en los dos campos y conserva lo escrito.
+- Las cinco pantallas de formulario responden 200.
+- Guardar usuaria sigue funcionando (302 al listado) y la validación de contraseñas distintas sigue avisando.
+- `php -l`, `node --check` sobre `admin.js` y `git diff --check` limpios.

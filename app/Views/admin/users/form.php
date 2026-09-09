@@ -102,6 +102,10 @@ require dirname(__DIR__) . '/partials/layout-start.php';
                     <label for="password_confirmation">Repetir contraseña</label>
                     <input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password"<?= $isEditing ? '' : ' required' ?>>
                 </div>
+                <label class="password-reveal">
+                    <input type="checkbox" data-toggle-password="password password_confirmation">
+                    <span>Mostrar contraseña</span>
+                </label>
             </div>
         </section>
 
