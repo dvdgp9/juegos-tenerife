@@ -6,6 +6,7 @@ namespace JuegosTenerife\Controllers\Admin;
 
 use JuegosTenerife\Core\Response;
 use JuegosTenerife\Core\Session;
+use JuegosTenerife\Services\AuditLogger;
 use JuegosTenerife\Services\AuthService;
 
 abstract class AdminController
@@ -32,6 +33,24 @@ abstract class AdminController
     protected function user(): ?array
     {
         return $this->auth->user();
+    }
+
+    /**
+     * Registra una acción administrativa atribuida a la usuaria en sesión.
+     *
+     * @param array<string, mixed> $metadata
+     */
+    protected function audit(string $action, string $subjectType, ?int $subjectId = null, array $metadata = []): void
+    {
+        $user = $this->user();
+
+        AuditLogger::log(
+            $action,
+            $subjectType,
+            $subjectId,
+            $metadata,
+            isset($user['id']) ? (int) $user['id'] : null
+        );
     }
 
     protected function flash(string $type, string $message): void

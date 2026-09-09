@@ -61,9 +61,20 @@ final class ModalityController extends AdminController
 
         try {
             $id = $this->saveModality($modality, null);
-            $this->storeMainImageUpload($id);
+            $imagePath = $this->storeMainImageUpload($id);
         } catch (RuntimeException $exception) {
             return $this->renderForm($modality, [$exception->getMessage()], 'Crear modalidad', '/admin/modalities');
+        }
+
+        $this->audit('modality.created', 'modality', $id, [
+            'name' => (string) $modality['name'],
+            'slug' => (string) $modality['slug'],
+        ]);
+        if ($imagePath !== null) {
+            $this->audit('media.uploaded', 'modality', $id, [
+                'kind' => 'main_image',
+                'file_path' => $imagePath,
+            ]);
         }
 
         $this->flash('success', 'Modalidad creada correctamente.');
@@ -112,9 +123,20 @@ final class ModalityController extends AdminController
 
         try {
             $this->saveModality($modality, $modalityId);
-            $this->storeMainImageUpload($modalityId);
+            $imagePath = $this->storeMainImageUpload($modalityId);
         } catch (RuntimeException $exception) {
             return $this->renderForm($modality, [$exception->getMessage()], 'Editar modalidad', '/admin/modalities/' . $modalityId);
+        }
+
+        $this->audit('modality.updated', 'modality', $modalityId, [
+            'name' => (string) $modality['name'],
+            'slug' => (string) $modality['slug'],
+        ]);
+        if ($imagePath !== null) {
+            $this->audit('media.uploaded', 'modality', $modalityId, [
+                'kind' => 'main_image',
+                'file_path' => $imagePath,
+            ]);
         }
 
         $this->flash('success', 'Modalidad guardada correctamente.');
@@ -286,7 +308,10 @@ final class ModalityController extends AdminController
         return $modalityId;
     }
 
-    private function storeMainImageUpload(int $modalityId): void
+    /**
+     * @return string|null Ruta de la nueva foto principal, o null si no se subió ninguna.
+     */
+    private function storeMainImageUpload(int $modalityId): ?string
     {
         $pdo = Database::connection();
 
@@ -305,7 +330,7 @@ final class ModalityController extends AdminController
         }
 
         if (!isset($_FILES['main_image']) || !is_array($_FILES['main_image']) || (int) ($_FILES['main_image']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
-            return;
+            return null;
         }
 
         $uploaded = (new MediaUploadService())->storeImage($_FILES['main_image'], 'modalities/' . $modalityId);
@@ -333,6 +358,8 @@ final class ModalityController extends AdminController
             $pdo->rollBack();
             throw new RuntimeException('No se pudo guardar la foto principal: ' . $throwable->getMessage(), 0, $throwable);
         }
+
+        return (string) $uploaded['file_path'];
     }
 
     private function slugExists(string $slug, ?int $modalityId): bool

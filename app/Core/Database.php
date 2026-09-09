@@ -34,16 +34,25 @@ final class Database
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]);
         } catch (PDOException $exception) {
+            // El detalle de conexión (host, usuario, base) solo va al log del
+            // servidor: el mensaje que puede acabar en pantalla no debe
+            // describir la infraestructura ni la configuración.
             $envLoaded = isset($_ENV['DB_DATABASE']) ? 'yes' : 'no';
-            $message = 'No se pudo conectar con la base de datos. [diag] '
-                . $exception->getMessage()
+            error_log(
+                '[db] Conexión fallida: ' . $exception->getMessage()
                 . ' | host=' . $config['host']
                 . ' port=' . $config['port']
                 . ' db=' . $config['database']
                 . ' user=' . $config['username']
                 . ' pwd_len=' . strlen((string) $config['password'])
-                . ' env_loaded=' . $envLoaded;
-            throw new RuntimeException($message, 0, $exception);
+                . ' env_loaded=' . $envLoaded
+            );
+
+            throw new RuntimeException(
+                'No se pudo conectar con la base de datos. Revisa el log de errores del servidor para el detalle.',
+                0,
+                $exception
+            );
         }
 
         return self::$connection;

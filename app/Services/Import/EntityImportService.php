@@ -134,6 +134,7 @@ final class EntityImportService
 
             $this->completeImport($pdo, $importId, $summary);
             $pdo->commit();
+            $summary['import_id'] = $importId;
         } catch (\Throwable $throwable) {
             $pdo->rollBack();
             throw new RuntimeException('No se pudo completar la importación: ' . $throwable->getMessage(), 0, $throwable);

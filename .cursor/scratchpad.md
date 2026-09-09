@@ -747,7 +747,7 @@ Success criteria:
 - [ ] Paso 6: Uploads de logos/fotos/foto de modalidad. Implementado por Executor; pendiente validación manual en Plesk.
 - [ ] Paso 7: CRUD de modalidades editable. Implementado por Executor; pendiente validación manual en Plesk.
 - [ ] Paso 8: Gestión simple de usuarias. Implementado por Executor; pendiente validación manual en Plesk.
-- [ ] Paso 9: Auditoría y protección ante errores.
+- [ ] Paso 9: Auditoría y protección ante errores. Implementado y verificado por Executor contra MariaDB local el 2026-09-09; pendiente validación manual en Plesk.
 - [ ] Paso 10: QA en Plesk y documentación de uso.
 
 ### Executor's Feedback or Assistance Requests
@@ -1033,3 +1033,74 @@ Executor completado:
 ### Executor's Feedback or Assistance Requests
 
 - Sin solicitudes pendientes para esta tanda.
+
+---
+
+## 2026-09-09 — Executor: Paso 9 (auditoría y protección ante errores)
+
+### Current Status / Progress Tracking
+
+Implementado el Paso 9 de la fase "backend editable para trabajadoras".
+
+Auditoría:
+
+- Añadido `app/Services/AuditLogger.php`: escribe en la tabla `audit_logs` (ya existente en `001_initial_schema.sql`, no hace falta migración) y expone `recent()` para la pantalla de actividad.
+- El registro nunca rompe la operación que lo origina: si falla la escritura se anota con `error_log` y la petición continúa.
+- Añadido helper `audit()` en `AdminController`, que atribuye la acción a la usuaria en sesión.
+- Acciones registradas: `auth.login`, `auth.login_failed`, `auth.logout`, `entity.created`, `entity.updated`, `entity.published`, `entity.unpublished`, `entity.deleted`, `facility.created`, `facility.updated`, `facility.deleted`, `modality.created`, `modality.updated`, `media.uploaded`, `media.deleted`, `user.created`, `user.updated`, `import.completed` (con creadas/repetidas/omitidas/errores), `import.failed`.
+- `EntityImportService::import()` devuelve ahora `import_id` en el resumen para poder referenciar la importación en la auditoría.
+- Nunca se registran contraseñas: en `user.updated` solo se guarda el booleano `password_changed`.
+
+Borrado lógico:
+
+- Nuevas rutas `POST /admin/entities/{id}/delete` y `POST /admin/facilities/{id}/delete`.
+- `EntityController::destroy()` marca `deleted_at` y fuerza `is_published = 0`; `FacilityController::destroy()` marca `deleted_at`.
+- No hay borrado físico en ninguna de las dos pantallas.
+- Ambas exigen sesión y CSRF; sin CSRF válido no se archiva nada y se muestra aviso.
+
+Confirmaciones:
+
+- Añadido `public/assets/js/admin.js`, cargado desde el layout admin: intercepta el submit de cualquier formulario con `data-confirm` y pide confirmación.
+- Botón "Archivar" en los listados de entidades e instalaciones, con texto de confirmación que nombra el registro afectado.
+
+Errores de guardado:
+
+- `Database::connection()` ya no lanza el detalle de infraestructura (host, base, usuario, longitud de contraseña) en el mensaje de la excepción; ese diagnóstico va a `error_log` y el mensaje visible es genérico.
+- Los errores de guardado de entidades, instalaciones y modalidades siguen mostrando el motivo concreto dentro del admin, que está tras login.
+
+Copy obsoleto corregido:
+
+- Dashboard: la tarjeta "Próximas herramientas" pasa a "Instalaciones y modalidades" con enlace real; los textos ya no anuncian como pendiente lo que ya existe.
+- Listado de entidades: eliminado el aviso de que la edición llegaría "en el siguiente bloque".
+- Dashboard: nueva sección "Actividad reciente" con las últimas 12 entradas de `audit_logs`.
+
+### Verificación ejecutada (contra MariaDB real, por primera vez)
+
+Se montó base de datos local de pruebas `juegos_tenerife_test` en la MariaDB del equipo (12.2.2), con usuario `juegos_test@127.0.0.1` limitado a esa base. No se tocó ninguna base de producción.
+
+- Migraciones `001`, `002` y `003` se ejecutan sin errores.
+- `007_add_entity_subtype.sql` falla con "Duplicate column name" sobre una base nueva, porque `001` ya incluye la columna. Es correcto: `007` solo aplica a bases creadas antes de esa corrección.
+- Login correcto y login fallido: ambos quedan registrados en `audit_logs`.
+- Crear entidad publicada → `entity.created`. Editar y quitar publicación → `entity.updated` + `entity.unpublished`.
+- Archivar sin CSRF válido: rechazado, `deleted_at` sigue a NULL.
+- Archivar con CSRF válido: `deleted_at` fijado, `entity.deleted` registrado.
+- La entidad archivada desaparece del listado admin y su ficha pública devuelve 404.
+- Crear y archivar instalación: `facility.created` y `facility.deleted` registrados, `deleted_at` fijado.
+- Editar modalidad → `modality.updated`. Crear usuaria → `user.created` con el id correcto.
+- Confirmación del navegador: al cancelar el diálogo, el formulario no se envía y el registro no se archiva.
+- Dashboard renderiza la actividad reciente con autor y fecha; sin desbordamiento horizontal a 375 px.
+- Home, buscador y ficha pública siguen respondiendo 200 con datos reales.
+- `php -l` limpio en todos los archivos tocados, `git diff --check` limpio y `composer audit --no-dev` sin vulnerabilidades.
+
+### Executor's Feedback or Assistance Requests
+
+- `import.completed` / `import.failed` están implementados pero no probados end-to-end: no hay ningún Excel del censo disponible en el equipo para lanzar una importación real. Queda para la prueba manual en Plesk.
+- Se creó un `.env` local apuntando a `juegos_tenerife_test`. Está en `.gitignore`, no viaja al repositorio y no afecta a Plesk.
+- Decisión tomada dentro del Paso 9: el borrado lógico se aplica solo a entidades e instalaciones, como pedía el criterio. Modalidades no se pueden archivar (romperían fichas editoriales públicas) y las usuarias se desactivan con `is_active`, que ya existía.
+
+### Lessons
+
+- La tabla `audit_logs` existía desde la migración inicial pero ningún código escribía en ella; conviene verificar que las tablas previstas en el esquema tengan escritura real antes de darlas por hechas.
+- El registro de auditoría no debe poder tumbar la operación auditada: capturar cualquier excepción y seguir.
+- Los mensajes de error visibles no deben describir la infraestructura; el diagnóstico va al log del servidor.
+- `Slugger::slug()` depende de `iconv('ASCII//TRANSLIT')`, cuyo resultado cambia según el sistema: en macOS "Federación" produce `federaci-on-de-...`. En Linux/Plesk (glibc) suele resolverse como `federacion-de-...`. Conviene sustituirlo por un mapa de transliteración explícito para que los slugs públicos no dependan del servidor.

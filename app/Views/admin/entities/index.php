@@ -4,7 +4,7 @@
     <div>
         <p class="eyebrow">Administración</p>
         <h1>Entidades</h1>
-        <p>Listado de entidades importadas o creadas manualmente. La edición completa se añadirá en el siguiente bloque del backend.</p>
+        <p>Listado de entidades importadas o creadas manualmente. Edita cualquier ficha, publícala o archívala cuando deje de tener uso.</p>
     </div>
     <div class="admin-form-actions top">
         <a class="button secondary" href="/admin/import">Importar nuevas</a>
@@ -19,7 +19,7 @@
 <?php if (empty($entities) && empty($error)): ?>
     <div class="empty-state admin-empty">
         <strong>No hay entidades cargadas.</strong>
-        <span>Importa un Excel o crea una entidad manualmente cuando el CRUD esté activo.</span>
+        <span>Importa un Excel o crea una entidad manualmente.</span>
     </div>
 <?php endif; ?>
 
@@ -82,6 +82,10 @@
                             <div class="admin-row-actions">
                                 <a class="admin-action-button primary" href="/admin/entities/<?= (int) $entity['id'] ?>/edit">Editar</a>
                                 <a class="admin-action-button" href="/entidades/<?= htmlspecialchars((string) $entity['slug'], ENT_QUOTES, 'UTF-8') ?>" target="_blank" rel="noopener">Ver ficha</a>
+                                <form class="admin-inline-form" action="/admin/entities/<?= (int) $entity['id'] ?>/delete" method="post" data-confirm="Se archivará &quot;<?= htmlspecialchars((string) $entity['name'], ENT_QUOTES, 'UTF-8') ?>&quot;. Dejará de verse en la web pública y en este listado. ¿Continuar?">
+                                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars((string) $csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                    <button class="admin-action-button danger" type="submit">Archivar</button>
+                                </form>
                             </div>
                         </td>
                     </tr>

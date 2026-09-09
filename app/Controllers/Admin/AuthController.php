@@ -7,6 +7,7 @@ namespace JuegosTenerife\Controllers\Admin;
 use JuegosTenerife\Core\Csrf;
 use JuegosTenerife\Core\Response;
 use JuegosTenerife\Core\View;
+use JuegosTenerife\Services\AuditLogger;
 use JuegosTenerife\Services\AuthService;
 use RuntimeException;
 
@@ -45,8 +46,14 @@ final class AuthController
         }
 
         if ($user === null) {
+            AuditLogger::log('auth.login_failed', 'user', null, ['identifier' => $identifier]);
+
             return $this->loginWithError('Credenciales no válidas.');
         }
+
+        AuditLogger::log('auth.login', 'user', (int) $user['id'], [
+            'username' => (string) ($user['username'] ?? ''),
+        ], (int) $user['id']);
 
         return Response::redirect('/admin');
     }
@@ -57,7 +64,13 @@ final class AuthController
             return Response::redirect('/admin');
         }
 
-        (new AuthService())->logout();
+        $auth = new AuthService();
+        $user = $auth->user();
+        if (is_array($user) && isset($user['id'])) {
+            AuditLogger::log('auth.logout', 'user', (int) $user['id'], [], (int) $user['id']);
+        }
+
+        $auth->logout();
 
         return Response::redirect('/admin/login');
     }

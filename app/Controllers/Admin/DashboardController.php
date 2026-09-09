@@ -7,6 +7,7 @@ namespace JuegosTenerife\Controllers\Admin;
 use JuegosTenerife\Core\Response;
 use JuegosTenerife\Core\Csrf;
 use JuegosTenerife\Core\View;
+use JuegosTenerife\Services\AuditLogger;
 
 final class DashboardController extends AdminController
 {
@@ -23,6 +24,7 @@ final class DashboardController extends AdminController
             'user' => $this->user(),
             'csrf' => Csrf::token(),
             'flash' => $this->consumeFlash(),
+            'activity' => AuditLogger::recent(12),
         ]);
     }
 }

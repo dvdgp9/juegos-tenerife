@@ -64,6 +64,10 @@
                         <td>
                             <div class="admin-row-actions">
                                 <a class="admin-action-button primary" href="/admin/facilities/<?= (int) $facility['id'] ?>/edit">Editar</a>
+                                <form class="admin-inline-form" action="/admin/facilities/<?= (int) $facility['id'] ?>/delete" method="post" data-confirm="Se archivará &quot;<?= htmlspecialchars((string) $facility['name'], ENT_QUOTES, 'UTF-8') ?>&quot;. Dejará de aparecer en fichas y mapas públicos. ¿Continuar?">
+                                    <input type="hidden" name="_csrf" value="<?= htmlspecialchars((string) $csrf, ENT_QUOTES, 'UTF-8') ?>">
+                                    <button class="admin-action-button danger" type="submit">Archivar</button>
+                                </form>
                             </div>
                         </td>
                     </tr>

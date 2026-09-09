@@ -79,6 +79,12 @@ final class EntityController extends AdminController
             return $this->renderForm($entity, [$exception->getMessage()], 'Crear entidad', '/admin/entities');
         }
 
+        $this->audit('entity.created', 'entity', $id, [
+            'name' => (string) $entity['name'],
+            'slug' => (string) $entity['slug'],
+            'is_published' => (int) $entity['is_published'],
+        ]);
+
         $this->flash('success', 'Entidad creada correctamente.');
 
         return Response::redirect('/admin/entities/' . $id . '/edit');
@@ -131,9 +137,66 @@ final class EntityController extends AdminController
             return $this->renderForm($entity, [$exception->getMessage()], 'Editar entidad', '/admin/entities/' . $entityId);
         }
 
+        $this->audit('entity.updated', 'entity', $entityId, [
+            'name' => (string) $entity['name'],
+            'slug' => (string) $entity['slug'],
+        ]);
+
+        $wasPublished = ((int) ($existing['is_published'] ?? 0)) === 1;
+        $isPublished = ((int) ($entity['is_published'] ?? 0)) === 1;
+        if ($wasPublished !== $isPublished) {
+            $this->audit($isPublished ? 'entity.published' : 'entity.unpublished', 'entity', $entityId, [
+                'name' => (string) $entity['name'],
+            ]);
+        }
+
         $this->flash('success', 'Cambios guardados correctamente.');
 
         return Response::redirect('/admin/entities/' . $entityId . '/edit');
+    }
+
+    public function destroy(string $id): Response
+    {
+        $redirect = $this->requireAdmin();
+        if ($redirect !== null) {
+            return $redirect;
+        }
+
+        $entityId = (int) $id;
+        $existing = $this->findEntity($entityId);
+        if ($existing === null) {
+            return new Response('Entidad no encontrada', 404);
+        }
+
+        if (!Csrf::verify($_POST['_csrf'] ?? null)) {
+            $this->flash('error', 'La sesión ha caducado. Vuelve a intentarlo.');
+
+            return Response::redirect('/admin/entities');
+        }
+
+        try {
+            $statement = Database::connection()->prepare(
+                'UPDATE entities
+                 SET deleted_at = NOW(),
+                     is_published = 0
+                 WHERE id = :id
+                   AND deleted_at IS NULL'
+            );
+            $statement->execute(['id' => $entityId]);
+        } catch (\Throwable $throwable) {
+            $this->flash('error', 'No se pudo archivar la entidad: ' . $throwable->getMessage());
+
+            return Response::redirect('/admin/entities');
+        }
+
+        $this->audit('entity.deleted', 'entity', $entityId, [
+            'name' => (string) ($existing['name'] ?? ''),
+            'slug' => (string) ($existing['slug'] ?? ''),
+        ]);
+
+        $this->flash('success', 'Entidad archivada. Ya no aparece en la web pública ni en este listado.');
+
+        return Response::redirect('/admin/entities');
     }
 
     /**
@@ -642,9 +705,27 @@ final class EntityController extends AdminController
 
     private function syncEntityMedia(int $entityId): void
     {
-        $this->updateExistingMedia($entityId);
-        $this->storeLogoUpload($entityId);
-        $this->storeGalleryUploads($entityId);
+        $deleted = $this->updateExistingMedia($entityId);
+        $logoPath = $this->storeLogoUpload($entityId);
+        $uploaded = $this->storeGalleryUploads($entityId);
+
+        if ($deleted > 0) {
+            $this->audit('media.deleted', 'entity', $entityId, ['files' => $deleted]);
+        }
+
+        if ($logoPath !== null) {
+            $this->audit('media.uploaded', 'entity', $entityId, [
+                'kind' => 'logo',
+                'file_path' => $logoPath,
+            ]);
+        }
+
+        if ($uploaded > 0) {
+            $this->audit('media.uploaded', 'entity', $entityId, [
+                'kind' => 'gallery',
+                'files' => $uploaded,
+            ]);
+        }
     }
 
     /**
@@ -667,7 +748,10 @@ final class EntityController extends AdminController
         return $statement->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    private function updateExistingMedia(int $entityId): void
+    /**
+     * @return int Número de fotos eliminadas.
+     */
+    private function updateExistingMedia(int $entityId): int
     {
         $mediaInput = is_array($_POST['media'] ?? null) ? $_POST['media'] : [];
         $deleteIds = array_map('intval', (array) ($_POST['delete_media_ids'] ?? []));
@@ -717,12 +801,17 @@ final class EntityController extends AdminController
             $pdo->rollBack();
             throw new RuntimeException('No se pudieron guardar las fotos existentes: ' . $throwable->getMessage(), 0, $throwable);
         }
+
+        return count($deleteIds);
     }
 
-    private function storeLogoUpload(int $entityId): void
+    /**
+     * @return string|null Ruta del logo subido, o null si no se subió ninguno.
+     */
+    private function storeLogoUpload(int $entityId): ?string
     {
         if (!isset($_FILES['logo']) || !is_array($_FILES['logo']) || (int) ($_FILES['logo']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
-            return;
+            return null;
         }
 
         $uploaded = (new MediaUploadService())->storeImage($_FILES['logo'], 'entities/' . $entityId);
@@ -731,17 +820,22 @@ final class EntityController extends AdminController
             'logo_path' => $uploaded['file_path'],
             'id' => $entityId,
         ]);
+
+        return (string) $uploaded['file_path'];
     }
 
-    private function storeGalleryUploads(int $entityId): void
+    /**
+     * @return int Número de fotos de galería añadidas.
+     */
+    private function storeGalleryUploads(int $entityId): int
     {
         if (!isset($_FILES['gallery_images']) || !is_array($_FILES['gallery_images'])) {
-            return;
+            return 0;
         }
 
         $files = $this->normalizeMultipleUpload($_FILES['gallery_images']);
         if ($files === []) {
-            return;
+            return 0;
         }
 
         $upload = new MediaUploadService();
@@ -750,6 +844,8 @@ final class EntityController extends AdminController
             'INSERT INTO media_files (owner_type, owner_id, media_type, original_name, file_path, mime_type, file_size, alt_text, caption, sort_order)
              VALUES (:owner_type, :owner_id, :media_type, :original_name, :file_path, :mime_type, :file_size, :alt_text, :caption, :sort_order)'
         );
+
+        $stored = 0;
 
         foreach ($files as $file) {
             if ((int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
@@ -768,7 +864,10 @@ final class EntityController extends AdminController
                 'caption' => null,
                 'sort_order' => 100,
             ]);
+            $stored++;
         }
+
+        return $stored;
     }
 
     /**

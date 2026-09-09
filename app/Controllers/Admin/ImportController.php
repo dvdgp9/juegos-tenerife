@@ -117,10 +117,24 @@ final class ImportController extends AdminController
                 isset($user['id']) ? (int) $user['id'] : null
             );
         } catch (RuntimeException $exception) {
+            $this->audit('import.failed', 'import', null, [
+                'file' => (string) $pendingImport['originalName'],
+                'error' => $exception->getMessage(),
+            ]);
+
             return $this->renderWithError($exception->getMessage());
         }
 
         Session::forget('pending_import');
+
+        $this->audit('import.completed', 'import', isset($summary['import_id']) ? (int) $summary['import_id'] : null, [
+            'file' => (string) $pendingImport['originalName'],
+            'total' => (int) ($summary['total'] ?? 0),
+            'created' => (int) ($summary['created'] ?? 0),
+            'duplicate' => (int) ($summary['duplicate'] ?? 0),
+            'skipped' => (int) ($summary['skipped'] ?? 0),
+            'errors' => (int) ($summary['errors'] ?? 0),
+        ]);
 
         return View::render('admin/import', [
             'title' => 'Importar Excel',

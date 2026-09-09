@@ -65,6 +65,11 @@ final class FacilityController extends AdminController
             return $this->renderForm($facility, [$exception->getMessage()], 'Crear instalación', '/admin/facilities');
         }
 
+        $this->audit('facility.created', 'facility', $id, [
+            'name' => (string) $facility['name'],
+            'slug' => (string) $facility['slug'],
+        ]);
+
         $this->flash('success', 'Instalación creada correctamente.');
 
         return Response::redirect('/admin/facilities/' . $id . '/edit');
@@ -115,9 +120,57 @@ final class FacilityController extends AdminController
             return $this->renderForm($facility, [$exception->getMessage()], 'Editar instalación', '/admin/facilities/' . $facilityId);
         }
 
+        $this->audit('facility.updated', 'facility', $facilityId, [
+            'name' => (string) $facility['name'],
+            'slug' => (string) $facility['slug'],
+        ]);
+
         $this->flash('success', 'Instalación guardada correctamente.');
 
         return Response::redirect('/admin/facilities/' . $facilityId . '/edit');
+    }
+
+    public function destroy(string $id): Response
+    {
+        $redirect = $this->requireAdmin();
+        if ($redirect !== null) {
+            return $redirect;
+        }
+
+        $facilityId = (int) $id;
+        $existing = $this->findFacility($facilityId);
+        if ($existing === null) {
+            return new Response('Instalación no encontrada', 404);
+        }
+
+        if (!Csrf::verify($_POST['_csrf'] ?? null)) {
+            $this->flash('error', 'La sesión ha caducado. Vuelve a intentarlo.');
+
+            return Response::redirect('/admin/facilities');
+        }
+
+        try {
+            $statement = Database::connection()->prepare(
+                'UPDATE facilities
+                 SET deleted_at = NOW()
+                 WHERE id = :id
+                   AND deleted_at IS NULL'
+            );
+            $statement->execute(['id' => $facilityId]);
+        } catch (\Throwable $throwable) {
+            $this->flash('error', 'No se pudo archivar la instalación: ' . $throwable->getMessage());
+
+            return Response::redirect('/admin/facilities');
+        }
+
+        $this->audit('facility.deleted', 'facility', $facilityId, [
+            'name' => (string) ($existing['name'] ?? ''),
+            'slug' => (string) ($existing['slug'] ?? ''),
+        ]);
+
+        $this->flash('success', 'Instalación archivada. Deja de mostrarse en fichas y mapas públicos.');
+
+        return Response::redirect('/admin/facilities');
     }
 
     /**

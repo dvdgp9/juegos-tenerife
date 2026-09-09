@@ -69,6 +69,12 @@ final class UserController extends AdminController
             'is_active' => (int) $user['is_active'],
         ]);
 
+        $this->audit('user.created', 'user', (int) Database::connection()->lastInsertId(), [
+            'username' => (string) $user['username'],
+            'role' => (string) $user['role'],
+            'is_active' => (int) $user['is_active'],
+        ]);
+
         $this->flash('success', 'Usuaria creada correctamente.');
 
         return Response::redirect('/admin/users');
@@ -146,6 +152,13 @@ final class UserController extends AdminController
              WHERE id = :id'
         );
         $statement->execute($params);
+
+        $this->audit('user.updated', 'user', $userId, [
+            'username' => (string) $user['username'],
+            'role' => (string) $user['role'],
+            'is_active' => (int) $user['is_active'],
+            'password_changed' => $changePassword,
+        ]);
 
         $this->flash('success', 'Usuaria guardada correctamente.');
 
