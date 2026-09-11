@@ -2014,3 +2014,57 @@ Incluye una tabla de mensajes de error con qué hacer en cada caso, incluido el 
 demasiado grande, dejando claro que **no se pierde nada** cuando aparece.
 
 El Paso H queda a falta de la prueba manual en Plesk, que depende del usuario.
+
+---
+
+## 2026-09-11 — Executor: ajuste del visor tras probarlo el usuario
+
+### Current Status / Progress Tracking
+
+Petición: que el visor sea menos opaco, que la foto se abra **sobre** la página y que se cierre
+con la X o pulsando en cualquier sitio que no sea la foto.
+
+Cambios, solo en `styles.css` y `app.js`:
+
+1. **Fondo translúcido**, de 0.88 a 0.62, con un desenfoque suave. La página sigue viéndose
+   detrás, así se entiende que la foto está abierta encima y no que se ha cambiado de pantalla.
+2. **Fuera el panel oscuro.** La foto va suelta sobre la página, con sombra para despegarla del
+   fondo. Antes había un marco que parecía parte del visor y confundía sobre dónde se podía
+   pulsar para cerrar.
+3. **Cierra todo lo que no sea la foto o un botón.** La comprobación pasa de "¿el destino es el
+   diálogo?" a "¿el destino no es la imagen ni un botón?". Ahora cierran también el pie de foto
+   y el hueco alrededor de la imagen, que es donde la gente pulsa de forma natural.
+4. **El pie lleva su propio fondo** en forma de pastilla: detrás puede quedar cualquier cosa de
+   la página y antes dependía del panel para ser legible. Se oculta entero cuando no hay ni
+   texto ni contador, para no dejar una pastilla vacía flotando.
+5. **Los botones pasan a fondo opaco.** Con el fondo translúcido, detrás de un botón puede
+   quedar una zona clara de la página, y un botón semitransparente se volvía ilegible.
+
+### Verificación ejecutada
+
+Comprobada zona por zona cada parte del visor, a 1280 px y a 375 px:
+
+| Dónde se pulsa | Resultado |
+|---|---|
+| La propia foto | No cierra |
+| El pie de foto | Cierra |
+| El hueco alrededor de la imagen | Cierra |
+| El margen del diálogo | Cierra |
+| Flecha siguiente | Navega (1 de 3 → 2 de 3), no cierra |
+| Botón X | Cierra |
+
+También: una galería de una sola foto sin título muestra solo la imagen y la X, sin pastilla
+vacía ni flechas. En móvil, foto, pie y flechas siguen colocándose bien.
+
+Suite completa (cinco pruebas) en verde, `node --check` correcto, `git diff --check` limpio.
+El cambio toca dos archivos: 35 líneas añadidas y 25 quitadas. Base de pruebas y
+`public/uploads` sin restos.
+
+### Lessons
+
+- Un visor con panel propio compite visualmente con la página y confunde sobre qué es zona de
+  cierre. Dejar la foto suelta sobre un fondo translúcido, con el pie en una pastilla y los
+  botones con fondo opaco, se lee mejor y hace obvio dónde pulsar para salir.
+- Al bajar la opacidad del fondo, todo lo que antes se apoyaba en el panel para ser legible
+  (pie de foto y botones) necesita fondo propio: detrás puede quedar cualquier zona clara de
+  la página.

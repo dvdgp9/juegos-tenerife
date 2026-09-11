@@ -226,6 +226,9 @@
 
             previousButton.disabled = items.length < 2;
             nextButton.disabled = items.length < 2;
+
+            // Sin texto ni contador, el pie sería una pastilla vacía flotando bajo la foto.
+            caption.parentNode.hidden = text === '' && counter.textContent === '';
         }
 
         function open(link) {
@@ -269,11 +272,11 @@
             }
         });
 
-        // Pulsar fuera de la foto cierra. El diálogo ocupa toda la pantalla y el panel
-        // oscuro es la figura que lleva dentro, así que un clic cuyo destino sea el propio
-        // diálogo es, por definición, un clic fuera de la foto y de los botones.
+        // Cierra al pulsar en cualquier sitio que no sea la propia foto o un botón: el
+        // diálogo ocupa toda la pantalla, así que eso incluye el hueco alrededor de la
+        // imagen, el pie y los márgenes.
         dialog.addEventListener('click', function (event) {
-            if (event.target === dialog) {
+            if (!event.target.closest || !event.target.closest('[data-lightbox-image], button')) {
                 dialog.close();
             }
         });

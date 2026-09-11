@@ -3149,8 +3149,11 @@ button:focus-visible {
     overscroll-behavior: contain;
 }
 
+/* Translúcido a propósito: la página sigue viéndose detrás, así se entiende que la foto
+   está abierta encima y no que se ha cambiado de pantalla. */
 .lightbox::backdrop {
-    background: rgba(11, 16, 20, 0.88);
+    background: rgba(11, 16, 20, 0.62);
+    backdrop-filter: blur(2px);
 }
 
 .lightbox[open] {
@@ -3159,41 +3162,45 @@ button:focus-visible {
     align-items: center;
 }
 
+/* Sin panel: la foto va suelta sobre la página. Todo lo que no sea la imagen o un botón
+   es zona de cierre, así que el marco no debe parecer parte del visor. */
 .lightbox-figure {
     display: grid;
-    gap: 10px;
+    justify-items: center;
+    gap: 12px;
     margin: 0;
     min-width: 0;
-    border-radius: 12px;
-    background: #10171c;
-    padding: 16px;
-    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+    padding: 12px;
 }
 
 .lightbox-figure img {
     display: block;
     width: auto;
     max-width: 100%;
-    max-height: 74dvh;
-    margin: 0 auto;
-    border-radius: 8px;
+    max-height: 78dvh;
+    border-radius: 10px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
     object-fit: contain;
 }
 
+/* El pie lleva su propio fondo porque detrás puede haber cualquier cosa de la página. */
 .lightbox-figure figcaption {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px 16px;
+    gap: 6px 16px;
     align-items: baseline;
-    justify-content: space-between;
-    min-height: 20px;
-    color: #c3ced4;
+    justify-content: center;
+    max-width: 100%;
+    border-radius: 999px;
+    background: rgba(11, 16, 20, 0.78);
+    padding: 7px 16px;
+    color: #e7edf0;
     font-size: 0.9rem;
     line-height: 1.45;
 }
 
 .lightbox-counter {
-    color: #8b9aa3;
+    color: #a7b4bc;
     font-size: 0.82rem;
     font-weight: 780;
     white-space: nowrap;
@@ -3203,9 +3210,11 @@ button:focus-visible {
 .lightbox-close {
     display: grid;
     place-items: center;
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.22);
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
+    /* Fondo propio y opaco: con el fondo translúcido, detrás de un botón puede quedar una
+       zona clara de la página y un botón semitransparente se volvería ilegible. */
+    background: rgba(11, 16, 20, 0.78);
     color: #f2f5f6;
     cursor: pointer;
     transition: background-color 160ms ease, border-color 160ms ease, opacity 160ms ease;
@@ -3213,8 +3222,8 @@ button:focus-visible {
 
 .lightbox-nav:hover,
 .lightbox-close:hover {
-    border-color: rgba(255, 255, 255, 0.42);
-    background: rgba(255, 255, 255, 0.18);
+    border-color: rgba(255, 255, 255, 0.5);
+    background: rgba(11, 16, 20, 0.94);
 }
 
 .lightbox-nav:focus-visible,
@@ -3248,8 +3257,6 @@ button:focus-visible {
     z-index: 1;
     width: 42px;
     height: 42px;
-    border-color: rgba(255, 255, 255, 0.28);
-    background: rgba(16, 23, 28, 0.82);
 }
 
 .lightbox-close svg {
@@ -3273,7 +3280,7 @@ button:focus-visible {
     }
 
     .lightbox-figure img {
-        max-height: 62dvh;
+        max-height: 66dvh;
     }
 
     /* En pantalla estrecha las flechas bajan a una fila propia bajo la foto: a los lados
