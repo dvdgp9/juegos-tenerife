@@ -221,71 +221,32 @@ require dirname(__DIR__) . '/partials/layout-start.php';
             </div>
         </section>
 
-        <section id="fotos" class="admin-form-section">
-            <div class="admin-form-section-head">
-                <div>
-                    <p class="eyebrow">05</p>
-                    <h2>Fotos de la entidad</h2>
-                </div>
+        <?php
+        // El logo es propio de la entidad, así que se inyecta en la sección de fotos
+        // en lugar de duplicar la galería entera aquí.
+        ob_start();
+        ?>
+        <div class="form-grid">
+            <div class="field wide file-field">
+                <label for="logo">Logo de la entidad</label>
+                <input id="logo" name="logo" type="file" accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif">
+                <small>Opcional. Se muestra en la cabecera de la ficha, no en la galería.</small>
+                <?php if (!empty($entity['logo_path'])): ?>
+                    <div class="admin-current-media">
+                        <img src="<?= $h($entity['logo_path']) ?>" alt="">
+                        <span>Logo actual</span>
+                    </div>
+                <?php endif; ?>
             </div>
-
-            <div class="form-grid two">
-                <div class="field">
-                    <label for="logo">Logo de la entidad</label>
-                    <input id="logo" name="logo" type="file" accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif">
-                    <small>Opcional. JPG, PNG, WEBP o GIF. Máximo 8 MB.</small>
-                    <?php if (!empty($entity['logo_path'])): ?>
-                        <div class="admin-current-media">
-                            <img src="<?= $h($entity['logo_path']) ?>" alt="">
-                            <span>Logo actual</span>
-                        </div>
-                    <?php endif; ?>
-                </div>
-                <div class="field">
-                    <label for="gallery_images">Añadir fotos a la galería</label>
-                    <input id="gallery_images" name="gallery_images[]" type="file" multiple accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif">
-                    <small>Puedes seleccionar varias imágenes. Se añadirán a la galería pública.</small>
-                </div>
-            </div>
-
-            <?php if ($mediaFiles === []): ?>
-                <div class="empty-state">
-                    <strong>Sin fotos de galería todavía.</strong>
-                    <span>Sube imágenes para mostrarlas en la ficha pública.</span>
-                </div>
-            <?php else: ?>
-                <div class="admin-media-grid">
-                    <?php foreach ($mediaFiles as $media): ?>
-                        <?php $isFeatured = (string) ($media['media_type'] ?? '') === 'entity_featured_photo'; ?>
-                        <article>
-                            <img src="<?= $h($media['file_path']) ?>" alt="">
-                            <div class="admin-media-fields">
-                                <label>
-                                    <span>Destacada</span>
-                                    <input name="featured_media_id" type="radio" value="<?= (int) $media['id'] ?>"<?= $isFeatured ? ' checked' : '' ?>>
-                                </label>
-                                <label>
-                                    <span>Orden</span>
-                                    <input name="media[<?= (int) $media['id'] ?>][sort_order]" type="number" min="0" value="<?= (int) ($media['sort_order'] ?? 100) ?>">
-                                </label>
-                                <label>
-                                    <span>Título</span>
-                                    <input name="media[<?= (int) $media['id'] ?>][caption]" type="text" value="<?= $h($media['caption'] ?? '') ?>">
-                                </label>
-                                <label>
-                                    <span>Texto alternativo</span>
-                                    <input name="media[<?= (int) $media['id'] ?>][alt_text]" type="text" value="<?= $h($media['alt_text'] ?? '') ?>">
-                                </label>
-                                <label class="admin-delete-check">
-                                    <input name="delete_media_ids[]" type="checkbox" value="<?= (int) $media['id'] ?>">
-                                    <span>Eliminar</span>
-                                </label>
-                            </div>
-                        </article>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
-        </section>
+        </div>
+        <?php
+        $mediaExtraHtml = (string) ob_get_clean();
+        $mediaFeaturedType = 'entity_featured_photo';
+        $mediaSectionNumber = '05';
+        $mediaSectionTitle = 'Fotos de la entidad';
+        $mediaSectionHint = 'Fotos del club o la asociación: equipo, actividades, celebraciones. Las fotos de los espacios de práctica se suben en cada instalación.';
+        require dirname(__DIR__) . '/partials/media-gallery.php';
+        ?>
 
         <section id="ubicacion" class="admin-form-section">
             <div class="admin-form-section-head">

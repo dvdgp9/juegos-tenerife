@@ -1131,6 +1131,14 @@ button:focus-visible {
 
 .entity-gallery figure.featured {
     grid-row: span 2;
+    /* Sin esto la imagen conserva su proporción 4/3 y el pie queda descolgado al final
+       de las dos filas, con un hueco en medio. */
+    grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.entity-gallery figure.featured img {
+    height: 100%;
+    aspect-ratio: auto;
 }
 
 .entity-gallery img {
@@ -1144,6 +1152,28 @@ button:focus-visible {
     color: var(--color-muted);
     font-size: 0.9rem;
     line-height: 1.45;
+}
+
+/* Cada instalación lleva su propio grupo con el nombre por delante, para que se entienda
+   que la foto es del espacio y no de la entidad que lo usa. */
+.gallery-group + .gallery-group {
+    margin-top: 26px;
+}
+
+.gallery-group h3 {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin: 0 0 12px;
+    color: var(--color-text);
+    font-size: 1rem;
+}
+
+.gallery-group h3::after {
+    flex: 1;
+    height: 1px;
+    background: var(--color-line);
+    content: "";
 }
 
 .entity-sidebar {
@@ -2479,5 +2509,803 @@ button:focus-visible {
 
     .modality-article p {
         text-align: left;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   Galería de fotos del panel (entidades e instalaciones)
+   --------------------------------------------------------------------------- */
+
+/* Sin esto, cualquier regla propia de display gana al atributo hidden y el elemento
+   se ve igualmente. Afecta a los avisos y distintivos que el guion muestra y oculta. */
+[hidden] {
+    display: none !important;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+.section-hint {
+    margin: 6px 0 0;
+    max-width: 52ch;
+    color: var(--color-muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.media-count {
+    margin: 0;
+    border: 1px solid var(--color-line);
+    border-radius: 999px;
+    background: var(--color-soft);
+    padding: 5px 13px;
+    color: var(--color-muted);
+    font-size: 0.82rem;
+    font-weight: 820;
+    white-space: nowrap;
+}
+
+.button.ghost {
+    border: 1px solid var(--color-line);
+    background: transparent;
+    color: var(--color-muted);
+}
+
+.button.ghost:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+.button.small {
+    min-height: 30px;
+    padding: 4px 12px;
+    font-size: 0.79rem;
+}
+
+/* Zona de subida */
+
+.media-dropzone {
+    position: relative;
+    margin-top: 4px;
+    border: 2px dashed var(--color-line);
+    border-radius: 10px;
+    background: #fbfcfb;
+    transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.media-dropzone:hover,
+.media-dropzone.is-dragging {
+    border-color: var(--color-accent);
+    background: #f2f9fc;
+}
+
+.media-dropzone-label {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    padding: 22px;
+    cursor: pointer;
+}
+
+.media-dropzone-icon {
+    display: grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 10px;
+    background: var(--color-soft);
+    color: var(--color-accent);
+}
+
+.media-dropzone-icon .admin-icon {
+    width: 22px;
+    height: 22px;
+}
+
+.media-dropzone-text {
+    display: grid;
+    gap: 3px;
+}
+
+.media-dropzone-text strong {
+    color: var(--color-text);
+    font-size: 0.98rem;
+}
+
+/* El peso se reinicia porque la zona entera es un label y hereda su negrita global,
+   que aplastaría la jerarquía entre el titular y las dos líneas de apoyo. */
+.media-dropzone-text span {
+    color: var(--color-muted);
+    font-size: 0.89rem;
+    font-weight: 500;
+}
+
+.media-dropzone-text small {
+    color: var(--color-muted);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+/* El campo real queda cubriendo la zona: mantiene el foco por teclado sin exponer
+   el control nativo, que no se puede maquetar. */
+.media-dropzone input[type="file"] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.media-dropzone:focus-within {
+    border-color: var(--color-accent);
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
+/* Archivos elegidos, antes de guardar */
+
+.media-pending {
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+    border: 1px solid rgba(0, 111, 159, 0.22);
+    border-radius: 9px;
+    background: #f2f9fc;
+    padding: 14px 16px;
+}
+
+.media-pending-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0;
+}
+
+.media-pending-head strong {
+    font-size: 0.92rem;
+}
+
+.media-pending ul {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.media-pending li {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    font-size: 0.86rem;
+}
+
+.media-pending li img {
+    width: 44px;
+    height: 44px;
+    border-radius: 6px;
+    background: #ffffff;
+    object-fit: cover;
+}
+
+.media-pending li span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.media-pending li em {
+    color: var(--color-muted);
+    font-size: 0.82rem;
+    font-style: normal;
+}
+
+.media-pending li.is-too-big em {
+    color: #a3372a;
+    font-weight: 820;
+}
+
+.media-pending-warning {
+    margin: 0;
+    border-radius: 7px;
+    background: #fbeae6;
+    padding: 10px 12px;
+    color: #8d2f22;
+    font-size: 0.86rem;
+    line-height: 1.45;
+}
+
+/* Recordatorio de la foto destacada */
+
+.media-featured-reset {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    margin: 16px 0 0;
+    border: 0;
+    border-radius: 8px;
+    background: var(--color-soft);
+    padding: 10px 14px;
+}
+
+.media-featured-reset p {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.86rem;
+}
+
+/* Rejilla de fotos guardadas */
+
+.media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+    margin-top: 14px;
+}
+
+.media-card {
+    display: grid;
+    gap: 12px;
+    border: 1px solid var(--color-line);
+    border-radius: 10px;
+    background: var(--color-surface);
+    padding: 12px;
+    transition: border-color 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+}
+
+.media-card.is-featured {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 1px var(--color-accent) inset;
+}
+
+.media-card.is-removing {
+    border-color: #e0b4ab;
+    background: #fdf6f4;
+    opacity: 0.72;
+}
+
+.media-card-figure {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.media-card-figure img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: var(--color-soft);
+    object-fit: cover;
+}
+
+.media-card.is-removing .media-card-figure img {
+    filter: grayscale(1);
+}
+
+.media-badge,
+.media-strike {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    display: inline-flex;
+    gap: 5px;
+    align-items: center;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 0.76rem;
+    font-weight: 840;
+}
+
+.media-badge {
+    background: rgba(0, 111, 159, 0.94);
+    color: #ffffff;
+}
+
+.media-strike {
+    background: rgba(141, 47, 34, 0.94);
+    color: #ffffff;
+}
+
+.media-badge .admin-icon,
+.media-strike .admin-icon {
+    width: 13px;
+    height: 13px;
+}
+
+.media-card.is-removing .media-badge {
+    display: none;
+}
+
+.media-card-body {
+    display: grid;
+    gap: 10px;
+}
+
+.media-card-name {
+    margin: 0;
+    overflow: hidden;
+    color: var(--color-text);
+    font-size: 0.92rem;
+    font-weight: 820;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.media-card-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Chip de destacada: el radio nativo se oculta pero sigue siendo el control real */
+
+.media-chip {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.media-chip input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.media-chip span {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    border: 1px solid var(--color-line);
+    border-radius: 999px;
+    background: var(--color-surface);
+    padding: 6px 12px;
+    color: var(--color-muted);
+    font-size: 0.81rem;
+    font-weight: 820;
+    transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+.media-chip span .admin-icon {
+    width: 14px;
+    height: 14px;
+}
+
+.media-chip:hover span {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+}
+
+.media-chip input:checked + span {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+    color: #ffffff;
+}
+
+.media-chip input:focus-visible + span {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
+/* Orden */
+
+.media-order {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--color-line);
+    border-radius: 8px;
+    background: var(--color-surface);
+    overflow: hidden;
+}
+
+.media-order-button {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border: 0;
+    background: transparent;
+    color: var(--color-muted);
+    cursor: pointer;
+    transition: background-color 160ms ease, color 160ms ease;
+}
+
+.media-order-button:hover:not(:disabled) {
+    background: var(--color-soft);
+    color: var(--color-accent);
+}
+
+.media-order-button:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.media-order-button .admin-icon {
+    width: 14px;
+    height: 14px;
+}
+
+.media-order-value input {
+    width: 56px;
+    height: 30px;
+    border: 0;
+    border-right: 1px solid var(--color-line);
+    border-left: 1px solid var(--color-line);
+    border-radius: 0;
+    background: transparent;
+    padding: 0 6px;
+    text-align: center;
+    font-family: inherit;
+    font-size: 0.83rem;
+    font-weight: 820;
+}
+
+.media-order-value input:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+}
+
+/* Campos de texto de cada foto */
+
+.media-field {
+    display: grid;
+    gap: 4px;
+}
+
+.media-field > span {
+    color: var(--color-muted);
+    font-size: 0.79rem;
+    font-weight: 820;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.media-field input {
+    height: 36px;
+    border: 1px solid var(--color-line);
+    border-radius: 7px;
+    background: var(--color-surface);
+    padding: 0 10px;
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: 0.88rem;
+}
+
+.media-field input:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -1px;
+}
+
+.media-field small {
+    color: var(--color-muted);
+    font-size: 0.76rem;
+}
+
+/* Eliminar: el estado se lee en la propia tarjeta, y es reversible hasta guardar */
+
+.media-remove {
+    display: inline-flex;
+    align-self: start;
+    align-items: center;
+    cursor: pointer;
+}
+
+.media-remove input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+.media-remove span {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    border: 1px solid var(--color-line);
+    border-radius: 7px;
+    padding: 5px 11px;
+    font-size: 0.8rem;
+    font-weight: 820;
+    transition: border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+.media-remove span .admin-icon {
+    width: 14px;
+    height: 14px;
+}
+
+.media-remove-mark {
+    color: #a3372a;
+}
+
+.media-remove:hover .media-remove-mark {
+    border-color: #d8a79c;
+    background: #fbeae6;
+}
+
+/* Anidado bajo .media-remove a propósito: si no, `.media-remove span` gana por
+   especificidad y los dos estados se verían a la vez. */
+.media-remove .media-remove-undo {
+    display: none;
+    border-color: var(--color-line);
+    color: var(--color-muted);
+}
+
+.media-remove input:checked ~ .media-remove-mark {
+    display: none !important;
+}
+
+.media-remove input:checked ~ .media-remove-undo {
+    display: inline-flex;
+}
+
+.media-remove input:focus-visible ~ span {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
+@media (max-width: 680px) {
+    .media-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .media-dropzone-label {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 18px;
+    }
+
+    .media-card-controls {
+        justify-content: flex-start;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   Visor de fotos de la ficha pública
+   --------------------------------------------------------------------------- */
+
+.gallery-link {
+    position: relative;
+    display: block;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.gallery-link:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+}
+
+.gallery-zoom {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background: rgba(23, 32, 38, 0.62);
+    color: #ffffff;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.gallery-zoom svg {
+    width: 17px;
+    height: 17px;
+}
+
+.gallery-link:hover .gallery-zoom,
+.gallery-link:focus-visible .gallery-zoom {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.gallery-link img {
+    transition: transform 320ms ease;
+}
+
+.gallery-link:hover img {
+    transform: scale(1.03);
+}
+
+/* El visor
+   El diálogo ocupa toda la pantalla y es transparente; el panel oscuro es la figura que
+   va dentro. Así cualquier punto alrededor de la foto sirve para cerrar: si el diálogo
+   fuese del tamaño del panel, el margen para pulsar fuera serían unos pocos píxeles, y
+   en pantalla estrecha, ninguno. */
+
+.lightbox {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: #f2f5f6;
+    overscroll-behavior: contain;
+}
+
+.lightbox::backdrop {
+    background: rgba(11, 16, 20, 0.88);
+}
+
+.lightbox[open] {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+}
+
+.lightbox-figure {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    min-width: 0;
+    border-radius: 12px;
+    background: #10171c;
+    padding: 16px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+}
+
+.lightbox-figure img {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    max-height: 74dvh;
+    margin: 0 auto;
+    border-radius: 8px;
+    object-fit: contain;
+}
+
+.lightbox-figure figcaption {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    align-items: baseline;
+    justify-content: space-between;
+    min-height: 20px;
+    color: #c3ced4;
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.lightbox-counter {
+    color: #8b9aa3;
+    font-size: 0.82rem;
+    font-weight: 780;
+    white-space: nowrap;
+}
+
+.lightbox-nav,
+.lightbox-close {
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #f2f5f6;
+    cursor: pointer;
+    transition: background-color 160ms ease, border-color 160ms ease, opacity 160ms ease;
+}
+
+.lightbox-nav:hover,
+.lightbox-close:hover {
+    border-color: rgba(255, 255, 255, 0.42);
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.lightbox-nav:focus-visible,
+.lightbox-close:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+}
+
+.lightbox-nav {
+    width: 46px;
+    height: 46px;
+    margin: 0 14px;
+}
+
+.lightbox-nav svg {
+    width: 22px;
+    height: 22px;
+}
+
+/* Una sola foto: no hay a dónde navegar, pero el hueco se conserva para que la imagen
+   no salte de sitio al abrir una galería u otra. */
+.lightbox-nav[disabled] {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.lightbox-close {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    z-index: 1;
+    width: 42px;
+    height: 42px;
+    border-color: rgba(255, 255, 255, 0.28);
+    background: rgba(16, 23, 28, 0.82);
+}
+
+.lightbox-close svg {
+    width: 18px;
+    height: 18px;
+}
+
+@media (max-width: 680px) {
+    .lightbox[open] {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas:
+            "figura"
+            "controles";
+        align-content: center;
+        gap: 16px;
+        padding: 12px;
+    }
+
+    .lightbox-figure {
+        grid-area: figura;
+    }
+
+    .lightbox-figure img {
+        max-height: 62dvh;
+    }
+
+    /* En pantalla estrecha las flechas bajan a una fila propia bajo la foto: a los lados
+       robarían ancho justo donde menos sobra. */
+    .lightbox-nav {
+        grid-area: controles;
+        width: 54px;
+        height: 54px;
+        margin: 0;
+    }
+
+    .lightbox-nav.prev {
+        justify-self: start;
+    }
+
+    .lightbox-nav.next {
+        justify-self: end;
+    }
+
+    .lightbox-close {
+        top: 12px;
+        right: 12px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gallery-link img,
+    .gallery-zoom {
+        transition: none;
+    }
+
+    .gallery-link:hover img {
+        transform: none;
     }
 }

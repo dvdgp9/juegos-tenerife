@@ -1,4 +1,7 @@
 <?php
+
+use JuegosTenerife\Services\MediaUploadService;
+
 /** @var array<string,mixed> $entity */
 /** @var list<array<string,mixed>> $mapPoints */
 $entity = $entity ?? [];
@@ -10,6 +13,51 @@ $socialLinks = $entity['social_links'] ?? [];
 $facilities = $entity['facilities'] ?? [];
 $ageRanges = $entity['age_ranges'] ?? [];
 $mediaFiles = $entity['media_files'] ?? [];
+$facilityMedia = $entity['facility_media'] ?? [];
+
+// La primera foto de la página se carga de inmediato; el resto, solo al acercarse.
+$galleryImagesRendered = 0;
+
+/**
+ * Pinta una galería. La rejilla usa la miniatura y el enlace apunta a la imagen completa:
+ * sin JavaScript el enlace abre la foto, y con JavaScript se abre el visor.
+ */
+$renderGallery = static function (array $photos, string $fallbackAlt) use (&$galleryImagesRendered): void {
+    $e = static fn (mixed $value): string => htmlspecialchars((string) ($value ?? ''), ENT_QUOTES, 'UTF-8');
+    $total = count($photos);
+    ?>
+    <div class="entity-gallery" data-gallery>
+        <?php foreach ($photos as $index => $media): ?>
+            <?php
+            $path = (string) $media['file_path'];
+            $caption = (string) ($media['caption'] ?? '');
+            $alt = (string) ($media['alt_text'] ?: $caption ?: $fallbackAlt);
+            // Con menos de tres fotos, la destacada a doble altura deja un hueco vacío al lado.
+            $isFeatured = $index === 0 && $total >= 3;
+            $galleryImagesRendered++;
+            ?>
+            <figure class="<?= $isFeatured ? 'featured' : '' ?>">
+                <a class="gallery-link"
+                   href="<?= $e($path) ?>"
+                   data-gallery-item
+                   data-caption="<?= $e($caption) ?>"
+                   aria-label="Ampliar foto<?= $alt === '' ? '' : ': ' . $e($alt) ?>">
+                    <img src="<?= $e(MediaUploadService::displayThumbnail($path)) ?>"
+                         alt="<?= $e($alt) ?>"
+                         loading="<?= $galleryImagesRendered === 1 ? 'eager' : 'lazy' ?>"
+                         decoding="async">
+                    <span class="gallery-zoom" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>
+                    </span>
+                </a>
+                <?php if ($caption !== ''): ?>
+                    <figcaption><?= $e($caption) ?></figcaption>
+                <?php endif; ?>
+            </figure>
+        <?php endforeach; ?>
+    </div>
+    <?php
+};
 
 $modalityIcons = [];
 foreach ($modalities as $m) {
@@ -292,16 +340,24 @@ $protocolLabel = static function (?string $status): string {
                 <?php if ($mediaFiles !== []): ?>
                     <section class="detail-section">
                         <p class="eyebrow">Galería</p>
-                        <div class="entity-gallery">
-                            <?php foreach ($mediaFiles as $index => $media): ?>
-                                <figure class="<?= $index === 0 ? 'featured' : '' ?>">
-                                    <img src="<?= htmlspecialchars((string) $media['file_path'], ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars((string) ($media['alt_text'] ?: $media['caption'] ?: $entity['name']), ENT_QUOTES, 'UTF-8') ?>">
-                                    <?php if (!empty($media['caption'])): ?>
-                                        <figcaption><?= htmlspecialchars((string) $media['caption'], ENT_QUOTES, 'UTF-8') ?></figcaption>
-                                    <?php endif; ?>
-                                </figure>
-                            <?php endforeach; ?>
-                        </div>
+                        <?php $renderGallery($mediaFiles, (string) $entity['name']); ?>
+                    </section>
+                <?php endif; ?>
+
+                <?php if ($facilityMedia !== []): ?>
+                    <?php
+                    // Van en un bloque aparte y con el nombre del espacio por delante: si se
+                    // mezclaran con las fotos propias, parecería que el terrero o el campo son
+                    // de la entidad, cuando lo habitual es que sean municipales o compartidos.
+                    ?>
+                    <section class="detail-section">
+                        <p class="eyebrow">Fotos de las instalaciones</p>
+                        <?php foreach ($facilityMedia as $group): ?>
+                            <div class="gallery-group">
+                                <h3><?= htmlspecialchars((string) $group['facility_name'], ENT_QUOTES, 'UTF-8') ?></h3>
+                                <?php $renderGallery($group['photos'], (string) $group['facility_name']); ?>
+                            </div>
+                        <?php endforeach; ?>
                     </section>
                 <?php endif; ?>
 
@@ -391,5 +447,29 @@ $protocolLabel = static function (?string $status): string {
             <a href="#">Accesibilidad</a>
         </nav>
     </footer>
+    <?php if ($mediaFiles !== [] || $facilityMedia !== []): ?>
+        <?php
+        // Se usa <dialog> nativo a propósito: trae de serie el cierre con Esc, el foco
+        // atrapado dentro y el resto de la página inerte, que a mano sale caro y frágil.
+        ?>
+        <dialog class="lightbox" data-lightbox aria-label="Foto ampliada">
+            <button type="button" class="lightbox-close" data-lightbox-close aria-label="Cerrar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+            <button type="button" class="lightbox-nav prev" data-lightbox-prev aria-label="Foto anterior">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+            </button>
+            <figure class="lightbox-figure">
+                <img data-lightbox-image alt="">
+                <figcaption>
+                    <span data-lightbox-caption></span>
+                    <span class="lightbox-counter" data-lightbox-counter></span>
+                </figcaption>
+            </figure>
+            <button type="button" class="lightbox-nav next" data-lightbox-next aria-label="Foto siguiente">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+        </dialog>
+    <?php endif; ?>
 </body>
 </html>

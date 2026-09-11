@@ -181,9 +181,139 @@
         applyFilters();
     }
 
+
+    // ---------------------------------------------------------------------
+    // Visor de fotos de la galería
+    //
+    // Cada foto es un enlace a la imagen completa. Sin este guion, o si el
+    // navegador no admite <dialog>, el enlace sigue abriendo la foto.
+    // ---------------------------------------------------------------------
+
+    function initLightbox() {
+        var dialog = document.querySelector('[data-lightbox]');
+
+        if (!dialog || typeof dialog.showModal !== 'function') {
+            return;
+        }
+
+        var image = dialog.querySelector('[data-lightbox-image]');
+        var caption = dialog.querySelector('[data-lightbox-caption]');
+        var counter = dialog.querySelector('[data-lightbox-counter]');
+        var previousButton = dialog.querySelector('[data-lightbox-prev]');
+        var nextButton = dialog.querySelector('[data-lightbox-next]');
+
+        var items = [];
+        var index = 0;
+        var opener = null;
+
+        function show(position) {
+            if (items.length === 0) {
+                return;
+            }
+
+            // Se da la vuelta por los extremos: llegar al final y no poder seguir
+            // obliga a volver atrás foto a foto.
+            index = (position + items.length) % items.length;
+
+            var item = items[index];
+            var text = item.getAttribute('data-caption') || '';
+            var alt = item.querySelector('img') ? item.querySelector('img').getAttribute('alt') : '';
+
+            image.src = item.getAttribute('href');
+            image.alt = alt || text;
+            caption.textContent = text;
+            counter.textContent = items.length > 1 ? (index + 1) + ' de ' + items.length : '';
+
+            previousButton.disabled = items.length < 2;
+            nextButton.disabled = items.length < 2;
+        }
+
+        function open(link) {
+            var gallery = link.closest('[data-gallery]');
+
+            // Se navega solo dentro de la galería pulsada: saltar de las fotos del club
+            // a las de una instalación sin avisar desorienta.
+            items = gallery
+                ? Array.prototype.slice.call(gallery.querySelectorAll('[data-gallery-item]'))
+                : [link];
+
+            opener = link;
+            show(items.indexOf(link));
+            dialog.showModal();
+        }
+
+        document.addEventListener('click', function (event) {
+            var link = event.target.closest ? event.target.closest('[data-gallery-item]') : null;
+
+            if (link) {
+                event.preventDefault();
+                open(link);
+
+                return;
+            }
+
+            if (event.target.closest('[data-lightbox-close]')) {
+                dialog.close();
+
+                return;
+            }
+
+            if (event.target.closest('[data-lightbox-prev]')) {
+                show(index - 1);
+
+                return;
+            }
+
+            if (event.target.closest('[data-lightbox-next]')) {
+                show(index + 1);
+            }
+        });
+
+        // Pulsar fuera de la foto cierra. El diálogo ocupa toda la pantalla y el panel
+        // oscuro es la figura que lleva dentro, así que un clic cuyo destino sea el propio
+        // diálogo es, por definición, un clic fuera de la foto y de los botones.
+        dialog.addEventListener('click', function (event) {
+            if (event.target === dialog) {
+                dialog.close();
+            }
+        });
+
+        dialog.addEventListener('keydown', function (event) {
+            // El propio <dialog> ya cierra con Esc, pero se hace explícito: así el visor no
+            // depende de que el navegador implemente esa parte, y el comportamiento es el
+            // mismo en todos.
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                dialog.close();
+
+                return;
+            }
+
+            if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                show(index - 1);
+            } else if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                show(index + 1);
+            }
+        });
+
+        dialog.addEventListener('close', function () {
+            // Devolver el foco a la miniatura de la que se salió: sin esto, quien navega
+            // con teclado vuelve al principio de la página.
+            if (opener) {
+                opener.focus();
+                opener = null;
+            }
+
+            image.removeAttribute('src');
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         initHomeSearch();
         initResultFilters();
         initMaps();
+        initLightbox();
     });
 }());

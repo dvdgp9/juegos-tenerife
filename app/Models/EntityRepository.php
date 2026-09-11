@@ -211,6 +211,7 @@ final class EntityRepository
         $entity['facilities'] = $this->facilitiesFor($pdo, $entityId);
         $entity['age_ranges'] = $this->ageRangesFor($pdo, $entityId);
         $entity['media_files'] = $this->mediaFilesFor($pdo, $entityId);
+        $entity['facility_media'] = $this->facilityMediaFor($pdo, $entity['facilities']);
 
         return $entity;
     }
@@ -297,6 +298,61 @@ final class EntityRepository
         $statement->execute(['id' => $entityId]);
 
         return $statement->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Fotos de las instalaciones vinculadas, agrupadas por instalación.
+     *
+     * Se resuelve en una sola consulta para todas: una por instalación multiplicaría las
+     * consultas de la ficha por cada espacio de práctica que tenga la entidad.
+     *
+     * @param list<array<string, mixed>> $facilities
+     * @return list<array{facility_name: string, photos: list<array<string, mixed>>}>
+     */
+    private function facilityMediaFor(PDO $pdo, array $facilities): array
+    {
+        if ($facilities === []) {
+            return [];
+        }
+
+        $facilityIds = array_map(static fn (array $facility): int => (int) $facility['id'], $facilities);
+        $placeholders = implode(', ', array_fill(0, count($facilityIds), '?'));
+
+        $statement = $pdo->prepare(
+            'SELECT owner_id, media_type, file_path, alt_text, caption
+             FROM media_files
+             WHERE owner_type = ?
+               AND media_type IN (?, ?)
+               AND owner_id IN (' . $placeholders . ')
+             ORDER BY media_type = ? DESC, sort_order ASC, id ASC'
+        );
+        $statement->execute(array_merge(
+            ['facility', 'facility_photo', 'facility_featured_photo'],
+            $facilityIds,
+            ['facility_featured_photo']
+        ));
+
+        $byFacility = [];
+        foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $photo) {
+            $byFacility[(int) $photo['owner_id']][] = $photo;
+        }
+
+        // Se recorren las instalaciones, no el resultado de la consulta, para conservar el
+        // orden en que aparecen en la ficha y descartar las que no tienen ninguna foto.
+        $grouped = [];
+        foreach ($facilities as $facility) {
+            $facilityId = (int) $facility['id'];
+            if (!isset($byFacility[$facilityId])) {
+                continue;
+            }
+
+            $grouped[] = [
+                'facility_name' => (string) ($facility['label'] ?: $facility['name']),
+                'photos' => $byFacility[$facilityId],
+            ];
+        }
+
+        return $grouped;
     }
 
     /**

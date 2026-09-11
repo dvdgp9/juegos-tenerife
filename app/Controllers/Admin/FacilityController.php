@@ -8,6 +8,7 @@ use JuegosTenerife\Core\Csrf;
 use JuegosTenerife\Core\Database;
 use JuegosTenerife\Core\Response;
 use JuegosTenerife\Core\View;
+use JuegosTenerife\Services\Media\MediaGallery;
 use JuegosTenerife\Models\MunicipalityRepository;
 use JuegosTenerife\Services\Support\Slugger;
 use PDO;
@@ -49,6 +50,12 @@ final class FacilityController extends AdminController
             return $redirect;
         }
 
+        if ($this->postExceededLimit()) {
+            $this->flash('error', $this->uploadLimitMessage());
+
+            return Response::redirect('/admin/facilities/new');
+        }
+
         $facility = $this->facilityFromPost();
         if (!Csrf::verify($_POST['_csrf'] ?? null)) {
             return $this->renderForm($facility, ['La sesión ha caducado. Vuelve a intentarlo.'], 'Crear instalación', '/admin/facilities');
@@ -61,6 +68,7 @@ final class FacilityController extends AdminController
 
         try {
             $id = $this->saveFacility($facility, null);
+            $this->syncFacilityMedia($id);
         } catch (RuntimeException $exception) {
             return $this->renderForm($facility, [$exception->getMessage()], 'Crear instalación', '/admin/facilities');
         }
@@ -97,6 +105,12 @@ final class FacilityController extends AdminController
             return $redirect;
         }
 
+        if ($this->postExceededLimit()) {
+            $this->flash('error', $this->uploadLimitMessage());
+
+            return Response::redirect('/admin/facilities/' . (int) $id . '/edit');
+        }
+
         $facilityId = (int) $id;
         $existing = $this->findFacility($facilityId);
         if ($existing === null) {
@@ -116,6 +130,7 @@ final class FacilityController extends AdminController
 
         try {
             $this->saveFacility($facility, $facilityId);
+            $this->syncFacilityMedia($facilityId);
         } catch (RuntimeException $exception) {
             return $this->renderForm($facility, [$exception->getMessage()], 'Editar instalación', '/admin/facilities/' . $facilityId);
         }
@@ -177,6 +192,39 @@ final class FacilityController extends AdminController
      * @param array<string, mixed> $facility
      * @param list<string> $errors
      */
+    private function gallery(): MediaGallery
+    {
+        return MediaGallery::forFacilities();
+    }
+
+    /**
+     * Aplica los cambios de la galería y deja constancia en auditoría.
+     *
+     * Una instalación puede estar vinculada a varias entidades, así que sus fotos se suben
+     * una sola vez aquí y se muestran en todas las fichas que la usan.
+     */
+    private function syncFacilityMedia(int $facilityId): void
+    {
+        $result = $this->gallery()->sync($facilityId, $_POST, $_FILES);
+
+        if ($result->deleted > 0) {
+            $this->audit('media.deleted', 'facility', $facilityId, ['files' => $result->deleted]);
+        }
+
+        foreach ($result->orphanedPaths as $path) {
+            // El archivo sigue en el disco aunque su ficha ya no exista. No se interrumpe el
+            // guardado por esto, pero debe quedar constancia para poder limpiarlo.
+            $this->audit('media.file_orphaned', 'facility', $facilityId, ['file_path' => $path]);
+        }
+
+        if ($result->uploaded > 0) {
+            $this->audit('media.uploaded', 'facility', $facilityId, [
+                'kind' => 'gallery',
+                'files' => $result->uploaded,
+            ]);
+        }
+    }
+
     private function renderForm(array $facility, array $errors, string $title, string $action): Response
     {
         return View::render('admin/facilities/form', [
@@ -190,6 +238,7 @@ final class FacilityController extends AdminController
             'action' => $action,
             'municipalities' => (new MunicipalityRepository())->allForAdmin(),
             'entities' => $this->allEntitiesForAdmin(),
+            'mediaFiles' => !empty($facility['id']) ? $this->gallery()->photosFor((int) $facility['id']) : [],
         ]);
     }
 

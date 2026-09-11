@@ -1180,3 +1180,837 @@ Causa del descuadre: en `.form-grid`, las celdas se estiraban a la altura de la 
 - Las cinco pantallas de formulario responden 200.
 - Guardar usuaria sigue funcionando (302 al listado) y la validación de contraseñas distintas sigue avisando.
 - `php -l`, `node --check` sobre `admin.js` y `git diff --check` limpios.
+
+---
+
+## 2026-09-11 — Planner: galerías de fotos en instalaciones y entidades
+
+### Background and Motivation
+
+Carmen vuelve a preguntar por las fotos: hace falta una forma de añadir fotografías en formato galería a instalaciones, clubes y asociaciones, gestionada desde el panel.
+
+Auditoría del código antes de planificar: **la galería de entidades ya existe de punta a punta** (Paso 6 de la fase backend editable, implementado y nunca validado en Plesk). Están `media_files` polimórfica, `MediaUploadService` con validación estricta, la sección "Fotos de la entidad" del formulario de entidad y el bloque "Galería" de la ficha pública.
+
+Lo que no existe es lo que probablemente se está pidiendo: **las instalaciones (`facilities`) no tienen fotos**. Y las fotografías disponibles en el repositorio (`Fotos-instalaciones-tenerife/`: terreros, campo de bolas de El Socorro, Casa del Ganadero, Casa de Carta) son justamente de instalaciones, no de clubes.
+
+Decisión de alcance acordada con el usuario el 2026-09-11: **las dos cosas**. Las instalaciones tendrán galería propia porque es donde están las fotos reales y porque una instalación compartida por varios clubes debe subirse una sola vez; las entidades conservan la suya para fotos del club en sí (equipo, actividades, entregas de trofeos).
+
+### Key Challenges and Analysis
+
+1. **No hay que construir el modelo de datos, hay que reutilizarlo.** `media_files` es polimórfica (`owner_type` / `owner_id` / `media_type`). Añadir instalaciones significa usar `owner_type = 'facility'`. **No hace falta migración de base de datos.** Esto reduce mucho el riesgo del trabajo.
+
+2. **El riesgo real no son las galerías, es el peso de las imágenes.** Hoy `MediaUploadService` guarda el original tal cual, hasta 8 MB. Una ficha con seis fotos de móvil puede superar los 40 MB. Esto es lo primero que hay que resolver: en cuanto alguien suba fotos de verdad, la web pública se vuelve inusable en móvil, que es donde más se va a consultar. El redimensionado va antes que cualquier galería nueva.
+
+3. **Orientación EXIF.** Las fotos verticales hechas con móvil llevan la rotación en metadatos. Al redimensionar con GD esos metadatos se pierden y la foto sale tumbada. Hay que leer la orientación con `exif_read_data()` y rotar antes de reescalar. Es un fallo que se ve a simple vista y que descubriríamos tarde si no se contempla desde el principio.
+
+4. **Ficheros huérfanos.** Al eliminar una foto solo se borra la fila de `media_files` (`EntityController.php:765`), el fichero se queda en disco para siempre. Con derivados (versión web + miniatura) el problema se multiplica por tres. Hay que borrar físicamente, validando siempre que la ruta cae dentro de `public/uploads` para que un `file_path` manipulado no pueda borrar otra cosa.
+
+5. **Duplicación de código entre entidad e instalación.** La gestión de galería en `EntityController` ocupa unas 150 líneas (`syncEntityMedia`, `updateExistingMedia`, `storeGalleryUploads`, `normalizeMultipleUpload`, `mediaFilesForEntity`). Copiarlas a `FacilityController` sería el camino corto y el error clásico: dos copias que divergen en cuanto alguien arregle un fallo en una sola. Conviene extraer un servicio compartido parametrizado por `owner_type` y que ambos controladores lo usen. El coste extra es pequeño y se paga solo en el primer arreglo.
+
+6. **Dos orígenes de fotos en la misma ficha pública.** La ficha de un club mostrará sus fotos propias y las de sus instalaciones vinculadas. Si se mezclan en una sola rejilla, parecerá que el terrero es propiedad del club. Deben ir en dos bloques con rótulos distintos, e indicar de qué instalación procede cada foto.
+
+7. **Entorno Plesk sin verificar.** GD está disponible en local (PHP 8.4), pero hay que confirmarlo en Plesk junto con `upload_max_filesize`, `post_max_size` y `max_file_uploads`, que pueden cortar en silencio una subida de varias fotos a la vez. También los permisos de escritura de `public/uploads`. Conviene comprobarlo antes de escribir código de redimensionado, no después.
+
+8. **Las instalaciones no tienen ficha pública propia.** No hay ruta `/instalaciones/{slug}`. Sus fotos se verán a través de las fichas de las entidades vinculadas. Darles página propia es una decisión de producto aparte y **queda fuera del alcance de este plan**.
+
+### High-level Task Breakdown
+
+#### Paso A — Comprobación previa del entorno Plesk
+
+Sin código. Verificar en producción: extensión GD activa, extensión exif activa, valores de `upload_max_filesize`, `post_max_size` y `max_file_uploads`, y permisos de escritura en `public/uploads`.
+
+Criterio de éxito: documentados los cuatro valores y confirmadas ambas extensiones. Si GD no estuviera disponible, el Paso B cambia de enfoque y hay que volver al Planner antes de seguir.
+
+#### Paso B — Redimensionado y saneamiento de imágenes
+
+Ampliar `MediaUploadService` para que, además de validar, genere versiones utilizables: corrección de orientación por EXIF, versión web con el lado mayor limitado a 1600 px y miniatura con el lado mayor a 400 px. El registro en `media_files` guarda la ruta de la versión web; la miniatura se deriva por convención de nombre.
+
+Criterios de éxito:
+- Una foto de 4000 px y 6 MB produce una versión web por debajo de 400 KB.
+- Se genera la miniatura correspondiente.
+- Una foto vertical de móvil se muestra vertical en el panel y en la ficha.
+- Una imagen ya pequeña no se reescala hacia arriba.
+- `php -l` limpio y `composer audit --no-dev` sin vulnerabilidades.
+
+#### Paso C — Borrado físico de ficheros al eliminar una foto
+
+Al borrar un registro de `media_files`, eliminar del disco la versión web y la miniatura. Validar con `realpath()` que la ruta está dentro de `public/uploads` antes de borrar nada.
+
+Criterios de éxito:
+- Eliminar una foto desde el panel deja de existir el fichero en disco.
+- Un `file_path` manipulado que apunte fuera de `public/uploads` no borra nada y queda registrado.
+- Si el fichero ya no existe, la eliminación del registro no falla.
+
+#### Paso D — Extraer la gestión de galería a un servicio compartido
+
+Mover la lógica de galería de `EntityController` a un servicio parametrizado por `owner_type`, y dejar `EntityController` usándolo. Sin cambios funcionales visibles: es una refactorización previa para no duplicar en el Paso E.
+
+Criterios de éxito:
+- La galería de entidades sigue funcionando igual: subir, ordenar, destacada, título, alt, eliminar.
+- Los eventos `media.uploaded` y `media.deleted` se siguen registrando en auditoría.
+- `EntityController` ya no contiene lógica de galería duplicable.
+
+#### Paso E — Galería de instalaciones
+
+Añadir la sección "Fotos de la instalación" al formulario de instalación, usando el servicio del Paso D con `owner_type = 'facility'` y `media_type = 'facility_photo'` / `facility_featured_photo`.
+
+Criterios de éxito:
+- Desde la edición de una instalación se pueden subir varias fotos a la vez.
+- Cada foto admite orden, título, texto alternativo, marca de destacada y eliminación.
+- Las operaciones quedan registradas en auditoría con `owner_type = 'facility'`.
+- Crear una instalación nueva y subirle fotos funciona igual que editarla.
+
+#### Paso F — Mostrar las fotos de instalaciones en la ficha pública
+
+`EntityRepository` recupera también las fotos de las instalaciones vinculadas. La ficha muestra dos bloques separados: "Galería" para las fotos propias de la entidad y "Fotos de las instalaciones" para las de sus espacios, indicando el nombre de la instalación.
+
+Criterios de éxito:
+- Un club con una instalación con fotos muestra el segundo bloque con el nombre de la instalación.
+- Un club sin fotos de ningún tipo no muestra ningún bloque vacío.
+- Una instalación compartida por dos clubes aparece en las fichas de ambos sin duplicar ficheros.
+- La consulta no dispara una petición por instalación.
+
+#### Paso G — Lightbox y carga diferida
+
+Ampliar las fotos al hacer clic y cargar de forma diferida las que no se ven al entrar.
+
+Criterios de éxito:
+- Al hacer clic la foto se amplía; se cierra con Esc y con clic fuera.
+- Se puede recorrer la galería con el teclado y el foco vuelve a su sitio al cerrar.
+- Todas las imágenes salvo la primera llevan `loading="lazy"`.
+- La rejilla usa las miniaturas y el lightbox la versión web.
+- Sin JavaScript en línea y con el CSS en `styles.css`.
+
+#### Paso H — QA en Plesk y documentación
+
+Prueba manual completa en producción y una nota breve para las trabajadoras sobre cómo subir fotos y dónde aparecen.
+
+Criterios de éxito:
+- Subida real de varias fotos a una instalación y a una entidad desde Plesk.
+- Comprobado el peso total de una ficha con galería en móvil.
+- Documento corto añadido a `docs/`.
+
+### Project Status Board — Fotos y galerías
+
+- [ ] Paso A: Comprobación previa del entorno Plesk (GD, exif, límites de subida, permisos).
+- [ ] Paso B: Redimensionado, miniaturas y corrección de orientación EXIF.
+- [ ] Paso C: Borrado físico de ficheros al eliminar una foto.
+- [ ] Paso D: Extraer la gestión de galería a un servicio compartido.
+- [ ] Paso E: Galería de instalaciones en el panel.
+- [ ] Paso F: Fotos de instalaciones en la ficha pública.
+- [ ] Paso G: Lightbox y carga diferida.
+- [ ] Paso H: QA en Plesk y documentación de uso.
+
+### Executor's Feedback or Assistance Requests
+
+Planner recomienda empezar por el **Paso A**, que no toca código y condiciona el enfoque del Paso B.
+
+Decisiones pendientes antes de ejecutar el Paso B:
+
+- **¿Se conserva el archivo original además de la versión web?** Recomendación del Planner: no conservarlo. Un original de 8 MB no aporta nada en una web pública de consulta y multiplica el uso de disco en Plesk. Si en el futuro hiciera falta material en alta resolución, debería vivir fuera de la aplicación.
+- **¿Se re-codifican las imágenes a un único formato?** Recomendación del Planner: mantener el formato de origen y limitarse a reescalar. Convertirlo todo a JPG estropearía los PNG con transparencia (por ejemplo un logotipo subido por error a la galería) y aporta poco.
+- **Límite de 8 MB por archivo:** con redimensionado en servidor se puede mantener, ya que el peso final deja de depender del original. Queda condicionado a lo que se encuentre en el Paso A.
+
+Fuera de alcance de este plan, anotado para no perderlo: las instalaciones no tienen ficha pública propia (`/instalaciones/{slug}`). Si se quisiera que una instalación fuese enlazable por sí misma, es una decisión de producto que requiere su propio plan.
+
+---
+
+## 2026-09-11 — Executor: Paso A (comprobación del entorno)
+
+### Current Status / Progress Tracking
+
+Decisiones del usuario registradas antes de empezar:
+
+1. **No se conserva el archivo original.** Solo se guardan la versión web y la miniatura.
+2. **No se re-codifican las imágenes.** Se mantiene el formato de origen y solo se reescala.
+3. **Se mantiene el límite de 8 MB por archivo**, condicionado a los límites reales de Plesk.
+
+No hay acceso por consola al servidor documentado en el repositorio, así que el Paso A no se
+puede ejecutar desde aquí. En su lugar se ha creado la herramienta que lo resuelve en un paso:
+
+- Añadido `tests/env_check.php`: comprueba versión de PHP, extensiones `gd`, `exif` y
+  `fileinfo`, formatos que GD puede generar, `upload_max_filesize`, `post_max_size`,
+  `max_file_uploads`, `memory_limit`, `max_execution_time` y permisos de escritura de las
+  cinco carpetas que la aplicación necesita. Solo lee: no modifica nada.
+- Distingue problemas bloqueantes de avisos, y devuelve código de salida 1 si hay bloqueantes,
+  para poder encadenarlo en un despliegue.
+- Documentado en `docs/deployment/plesk.md`, junto con la ruta equivalente en la interfaz de
+  Plesk para cuando no haya consola.
+
+### Verificación ejecutada
+
+En local (PHP 8.4.11): `gd`, `exif` y `fileinfo` presentes; GD genera JPEG, PNG, WEBP y GIF;
+las cinco carpetas son escribibles. Salida correcta, código 0. `php -l` limpio.
+
+El único aviso en local es `memory_limit` de 128 MB. Es relevante para el Paso B: una foto de
+4000x3000 ocupa unos 48 MB ya descomprimida en memoria, y GD necesita tener a la vez el origen
+y el destino. Con 128 MB se puede trabajar si se libera el recurso de origen antes de generar
+la miniatura, pero conviene comprobar qué valor tiene Plesk antes de decidir el tamaño máximo
+admitido.
+
+### Executor's Feedback or Assistance Requests
+
+**Paso A pendiente de que el usuario ejecute `tests/env_check.php` en Plesk y comparta la
+salida.** Los valores locales no sirven: el servidor tiene su propia configuración de PHP.
+
+De esa salida dependen dos cosas del Paso B:
+
+- Si faltara `gd`, el enfoque del redimensionado cambia y hay que volver a Planner.
+- El `memory_limit` de Plesk determina si 8 MB por archivo es un límite sostenible o hay que
+  bajarlo.
+
+---
+
+## 2026-09-11 — Executor: resultado del Paso A
+
+### Current Status / Progress Tracking
+
+El usuario no dispone de consola en el servidor, así que `tests/env_check.php` no se ha podido
+ejecutar. Los datos se han obtenido de la interfaz de Plesk, en dos pantallas.
+
+**Entorno:** PHP 8.4.25 FPM.
+
+**Extensiones** (*Herramientas y configuración > Configuración de PHP > Extensiones*):
+
+- `gd`: activa.
+- `imagick`: activa. **No estaba previsto y es mejor opción que GD.**
+- `fileinfo`: activa.
+- `exif`: no aparece en la lista.
+- Otras relevantes ya confirmadas: `zip`, `xmlreader` (importación Excel), `pdo_mysql`.
+
+**Límites actuales:**
+
+- `upload_max_filesize`: 2M
+- `post_max_size`: 8M
+- `memory_limit`: 128M
+- `max_execution_time`: 30
+- `max_input_time`: 60
+
+### Key Challenges and Analysis — revisión del Paso B
+
+1. **Imagick sustituye a GD en el Paso B.** Resuelve de golpe tres de los problemas que el
+   plan daba por asumidos:
+   - Lee la orientación de la foto por sí mismo (`getImageOrientation()` / `autoOrient`), así
+     que **la ausencia de `exif` deja de importar**. Con GD habría sido bloqueante.
+   - Su consumo de memoria no cuenta contra el `memory_limit` de PHP, sino contra los límites
+     propios de ImageMagick. El aviso sobre los 128 MB deja de ser crítico, aunque subir a
+     256 MB sigue siendo recomendable por el resto del proceso.
+   - Redimensiona con mejor calidad que GD, que es visible en fotografía.
+
+   Se usará Imagick sin respaldo en GD: está confirmado en el servidor y mantener dos caminos
+   para el mismo trabajo duplicaría la superficie de error a cambio de nada.
+
+2. **`upload_max_filesize` a 2M es bloqueante y ya está afectando a lo que existe.** La
+   galería de entidades, que está implementada desde el Paso 6, no puede recibir una foto de
+   móvil normal (3-5 MB): PHP la rechaza antes de que el código la vea. No es un fallo de la
+   aplicación, es configuración del servidor.
+
+3. **`post_max_size` a 8M limita el envío completo del formulario**, no cada archivo. El
+   formulario de entidad es largo; con tres o cuatro fotos se supera.
+
+4. **Efecto secundario comprobado en código:** al superarse `post_max_size`, PHP descarta
+   `$_POST` entero. En `EntityController::update()` eso hace fallar la verificación CSRF, de
+   modo que **no se guarda nada y la entidad queda intacta** — el CSRF actúa aquí como red de
+   seguridad involuntaria. Pero el mensaje que se muestra es "La sesión ha caducado. Vuelve a
+   intentarlo." y, además, `entityFromPost()` rellena todos los campos con cadena vacía, así
+   que el formulario se repinta en blanco. Quien lo sufra creerá que ha perdido el trabajo.
+
+### Executor's Feedback or Assistance Requests
+
+**Paso A cerrado salvo por los cambios de configuración, que dependen del usuario.**
+
+Valores a cambiar en Plesk antes del Paso B:
+
+| Ajuste | Actual | Necesario | Motivo |
+|---|---|---|---|
+| `upload_max_filesize` | 2M | 10M | Sin esto no entra ninguna foto de móvil. Bloqueante. |
+| `post_max_size` | 8M | 64M | Permite varias fotos en un mismo envío. Bloqueante. |
+| `memory_limit` | 128M | 256M | Recomendable, ya no crítico gracias a Imagick. |
+| `max_execution_time` | 30 | 120 | Procesar varias fotos en un envío. |
+
+Queda sin confirmar `max_file_uploads` y el permiso de escritura real de `public/uploads`.
+Ninguno de los dos bloquea el desarrollo: se verificarán en el Paso H con una subida real.
+
+Propuesta de paso nuevo, surgida de este análisis y pendiente de aprobación:
+
+- **Paso I — Mensaje claro al superarse el tamaño del formulario.** Detectar el caso
+  (`$_POST` vacío con `CONTENT_LENGTH` mayor que cero) y mostrar "Las fotos superan el tamaño
+  máximo del formulario" en lugar del aviso de sesión caducada. Aplica a entidades,
+  instalaciones y modalidades.
+
+### Paso A — cerrado el 2026-09-11
+
+El usuario confirma que ya ha aplicado los cuatro cambios de configuración en Plesk. Quedan
+por verificar con una subida real en el Paso H, no antes: la interfaz de Plesk no siempre
+refleja lo que acaba aplicando el pool de FPM.
+
+Decisión sobre el entorno de desarrollo: **instalar Imagick en local** para que lo que se
+prueba aquí sea exactamente lo que corre en el servidor. Descartado el doble camino
+Imagick/GD, que habría dejado sin probar justo la rama que se despliega.
+
+Instalado en local: ImageMagick 7.1.2-31 (Homebrew) y la extensión `imagick` 3.8.1 vía PECL.
+
+Incidencia durante la instalación, por si se repite en otra máquina: `pecl install imagick`
+falla al final con `failed to mkdir /opt/homebrew/Cellar/php/8.4.11/pecl/20240924`. La causa
+es que Homebrew deja `Cellar/php/<versión>/pecl` como enlace simbólico a
+`/opt/homebrew/lib/php/pecl`, carpeta que no existe. Se resuelve creándola a mano
+(`mkdir -p /opt/homebrew/lib/php/pecl/20240924`) y repitiendo la instalación. El módulo
+compila bien en el primer intento; lo único que falla es el copiado final.
+
+`tests/env_check.php` actualizado al nuevo enfoque: `imagick` y `fileinfo` pasan a ser
+obligatorias; `gd` y `exif` quedan como informativas, con la salvedad de que si faltara
+Imagick entonces `exif` vuelve a ser imprescindible. Añadido aviso por `max_execution_time`
+bajo y suprimido el de `memory_limit` cuando hay Imagick, porque su memoria no cuenta contra
+el límite de PHP.
+
+Salida en local: todo correcto, código 0.
+
+### Project Status Board — Fotos y galerías (actualizado 2026-09-11)
+
+- [x] Paso A: Comprobación previa del entorno Plesk. Cerrado: Imagick disponible en servidor
+      y en local, límites de subida ajustados por el usuario.
+- [ ] Paso B: Redimensionado, miniaturas y corrección de orientación **con Imagick**.
+- [ ] Paso C: Borrado físico de ficheros al eliminar una foto.
+- [ ] Paso D: Extraer la gestión de galería a un servicio compartido.
+- [ ] Paso E: Galería de instalaciones en el panel.
+- [ ] Paso F: Fotos de instalaciones en la ficha pública.
+- [ ] Paso G: Lightbox y carga diferida.
+- [ ] Paso I: Mensaje claro al superarse el tamaño del formulario. **Aprobado por el usuario
+      el 2026-09-11.** Conviene hacerlo junto al Paso D, que es cuando se toca el flujo de
+      guardado de los tres controladores.
+- [ ] Paso H: QA en Plesk y documentación de uso.
+
+### Lessons
+
+- Comprobar las extensiones disponibles en el servidor **antes** de decidir el enfoque técnico,
+  no después. El plan original daba por hecho GD + exif y el servidor no tiene `exif`; de haber
+  escrito el código primero, las fotos verticales habrían salido tumbadas en producción y el
+  fallo habría aparecido tarde, con fotos ya subidas.
+- Un límite de `upload_max_filesize` por debajo del que declara la aplicación convierte una
+  función terminada en una función que no existe: la galería de entidades llevaba desde el
+  Paso 6 sin poder aceptar una foto de móvil, y nada en la aplicación lo delataba.
+- Cuando PHP supera `post_max_size` descarta `$_POST` entero. Si el formulario lleva
+  verificación CSRF, el síntoma visible es "la sesión ha caducado", que no tiene ninguna
+  relación con la causa real. Merece la pena detectarlo de forma explícita.
+
+---
+
+## 2026-09-11 — Executor: Paso B (redimensionado con Imagick)
+
+### Current Status / Progress Tracking
+
+`app/Services/MediaUploadService.php` reescrito sobre Imagick. La interfaz pública no cambia
+salvo un parámetro opcional, así que las llamadas existentes siguen valiendo.
+
+Qué hace ahora `storeImage()`, además de las validaciones que ya tenía:
+
+- Gira la imagen físicamente según su orientación EXIF (`autoOrient()`).
+- Borra el resto de metadatos (`stripImage()`). Además de aligerar, evita publicar la
+  geolocalización que traen las fotos de móvil: son fotos de instalaciones reales y la
+  coordenada exacta no tiene por qué acabar en la web.
+- Reescala a 1600 px de lado mayor. **Nunca amplía**: una imagen más pequeña se deja igual.
+- Genera la miniatura de 400 px de lado mayor, salvo que se pida lo contrario.
+- Devuelve en `file_size` el peso del archivo publicado, no el del original.
+
+Decisiones de implementación:
+
+1. **El original no se conserva**, según lo acordado. Se escribe la versión web y se descarta
+   el temporal de PHP.
+2. **La miniatura no se registra en base de datos.** Se deriva del nombre con el sufijo
+   `-thumb` mediante `MediaUploadService::thumbnailPath()`. Añadir una columna habría obligado
+   a migrar `media_files` y a mantener dos filas por foto para nada.
+3. **Nunca se recomprime por encima de la calidad de origen.** Esto salió de probar con las
+   fotos reales del repositorio: ya venían a 1200 px, por debajo del umbral, así que solo se
+   recomprimían. Con calidad fija del 82 % una de ellas *crecía* de tamaño y todas perdían
+   definición a cambio de nada. Ahora se usa el menor valor entre la calidad de origen y 82.
+4. **Guarda defensiva de 50 megapíxeles.** Un PNG de pocos kilobytes puede descomprimirse hasta
+   agotar la memoria; el límite de 8 MB por archivo no protege de eso.
+5. **Los GIF animados se recorren fotograma a fotograma**, o el reescalado se quedaría con el
+   primero y perdería la animación. La miniatura sí se queda en un solo fotograma a propósito.
+6. **El logo de entidad ya no genera miniatura** (`storeImage(..., false)`): es pequeño y nunca
+   aparece en una rejilla. La imagen principal de modalidad sí la genera, porque el listado del
+   panel la muestra.
+
+### Verificación ejecutada
+
+Nuevo `tests/media_resize.php`, registrado como `composer test:media-resize`. Genera sus propias
+imágenes de muestra y comprueba el procesado real. **17 comprobaciones, todas correctas:**
+
+- Foto de 4000x3000 → versión web de 1600x1200 y miniatura de 400x300.
+- Foto vertical de móvil: se construye una muestra con la etiqueta EXIF de orientación 6
+  insertada a mano, porque ImageMagick no la escribe al generar la imagen. Tras el procesado la
+  foto queda 800x1200, es decir girada de verdad, y sin etiqueta pendiente de aplicar.
+- Imagen de 200x150: conserva su tamaño, no se amplía.
+- PNG con transparencia: el canal alfa sobrevive.
+- GIF animado de 2000x1500: conserva los tres fotogramas y los reescala; la miniatura queda en
+  uno solo.
+- Sin miniatura cuando no se pide.
+- Convención de nombre de la miniatura, incluida una ruta sin extensión.
+
+Con las 23 fotos reales de `Fotos-instalaciones-tenerife/`: 5796 KB → 5506 KB, **ningún archivo
+crece**. La mejora es pequeña porque esas fotos ya venían optimizadas a 1200 px.
+
+Con una foto de tamaño de móvil (4032x3024, 12 Mpx, contenido ruidoso que es el peor caso para
+comprimir): **5961 KB → 344 KB de versión web más 27 KB de miniatura.** Una galería de seis
+fotos pasa de unos 35 MB a unos 2 MB. Es el resultado que buscaba el Paso B.
+
+`php -l` limpio en los tres archivos tocados, `composer validate` correcto y `composer audit
+--no-dev` sin vulnerabilidades.
+
+### Executor's Feedback or Assistance Requests
+
+Paso B terminado a falta de la verificación del usuario. No se ha probado todavía una subida
+real por HTTP: `storeImage()` exige `is_uploaded_file()`, que solo es cierto en una petición
+real, así que el test ataca el procesado directamente. La subida completa se prueba en el
+Paso H, o antes si se levanta el servidor local con `composer serve`.
+
+Aviso para el Paso C: las miniaturas se derivan del nombre y **no están en base de datos**, así
+que el borrado físico tendrá que eliminar los dos archivos usando `thumbnailPath()`. Si se
+olvida, cada foto borrada dejará su miniatura huérfana.
+
+### Lessons
+
+- Probar con material real antes de dar por buena una optimización. Con imágenes sintéticas
+  grandes el redimensionado parecía un éxito rotundo; con las fotos reales del repositorio, que
+  ya venían optimizadas, la recompresión a calidad fija hacía crecer algún archivo y perder
+  definición en todos. El caso "la imagen ya está bien" es tan real como el caso "la imagen es
+  enorme".
+- Al reescalar un GIF animado con Imagick hay que recorrer los fotogramas explícitamente; el
+  reescalado directo solo afecta al primero y la animación se pierde sin dar ningún error.
+
+---
+
+## 2026-09-11 — Executor: Paso C (borrado físico de archivos)
+
+### Current Status / Progress Tracking
+
+Al revisar dónde se quedaban archivos sueltos aparecieron **tres** sitios, no uno. El plan solo
+contemplaba el primero:
+
+1. **Borrar una foto de la galería** (`EntityController::updateExistingMedia`): se borraba la
+   fila y el archivo se quedaba.
+2. **Sustituir el logo de una entidad** (`EntityController::storeLogoUpload`): se
+   sobrescribía `logo_path` y el logo anterior quedaba huérfano.
+3. **Sustituir la foto principal de una modalidad** (`ModalityController::storeMainImageUpload`):
+   se borraba la fila anterior y se insertaba la nueva; el archivo antiguo se quedaba.
+
+Los tres quedan resueltos.
+
+**`MediaUploadService::deleteStoredImage()`** borra la imagen y su miniatura. Es idempotente:
+si el archivo ya no está, se considera hecho. Devuelve `false` solo cuando la ruta no es
+aceptable o el borrado falla de verdad.
+
+La validación de la ruta se hace en dos pasos a propósito:
+
+- Primero sobre la ruta declarada: debe empezar por `/uploads/` y ningún segmento puede estar
+  vacío, ser `.` o ser `..`. Así se rechaza un `file_path` manipulado **aunque el archivo no
+  exista**, que es el caso que una comprobación basada solo en `realpath()` dejaría pasar sin
+  más porque `realpath()` de algo inexistente devuelve `false`.
+- Después sobre la ruta real: `realpath()` tiene que seguir cayendo dentro de la carpeta de
+  subidas. Esto es lo que descarta un enlace simbólico que apunte fuera.
+
+**El borrado de archivos ocurre siempre después de confirmar la transacción.** Al revés, una
+reversión dejaría filas en base de datos apuntando a imágenes ya borradas, que es peor que un
+archivo suelto: lo primero rompe la ficha pública, lo segundo solo ocupa disco.
+
+Si un borrado falla, se registra `media.file_orphaned` en auditoría y el guardado continúa.
+Abortar el guardado de una entidad porque no se pudo borrar un archivo sería desproporcionado,
+pero tiene que quedar constancia para poder limpiarlo.
+
+De paso se corrige una imprecisión de auditoría: `media.deleted` contaba las casillas marcadas
+en el formulario, no las fotos realmente borradas. Ahora cuenta las filas que existían y
+pertenecían de verdad a esa entidad.
+
+**El archivado de una entidad no borra sus archivos, y es intencionado.** `destroy()` es un
+borrado lógico (`deleted_at`), la entidad puede recuperarse, y sin sus fotos volvería mutilada.
+
+**El logo que apunta a `/assets` no se toca.** Solo se borra lo que está bajo `/uploads/`:
+lo demás pertenece al repositorio.
+
+### Verificación ejecutada
+
+Nuevo `tests/media_delete.php`, registrado como `composer test:media-delete`. Trabaja dentro de
+`public/uploads/__test__` y limpia al terminar. **16 comprobaciones, todas correctas:**
+
+- Borra la imagen y su miniatura.
+- Volver a borrar lo ya borrado no falla.
+- Rechaza una ruta que no empiece por `/uploads/`.
+- Rechaza el recorrido con `..`, y el archivo de fuera sigue estando.
+- Rechaza ruta vacía, solo el prefijo, segmentos vacíos y `.` como segmento.
+- Rechaza un enlace simbólico que sale de la carpeta, y el archivo apuntado sigue estando.
+- Borra la indicada sin llevarse la de al lado.
+- La carpeta de pruebas queda limpia.
+
+`public/uploads` queda como estaba, solo con su `.htaccess`. Las tres pruebas
+(`media_resize`, `media_delete`, `env_check`) pasan. `php -l` limpio en los tres archivos
+tocados, `git diff --check` limpio y `composer audit --no-dev` sin vulnerabilidades.
+
+### Executor's Feedback or Assistance Requests
+
+Sin bloqueos. Paso C terminado a falta de verificación.
+
+Nota para cuando se despliegue: **las fotos ya subidas antes de este cambio no tienen
+miniatura**, porque el Paso B es posterior. Si en producción ya hay alguna, la rejilla del Paso
+G intentará mostrar una miniatura que no existe. Hay dos salidas: volver a subirlas, o que la
+vista use la versión web cuando no encuentre miniatura. Lo segundo es más robusto y lo daré por
+hecho en el Paso G, pero conviene decidirlo antes.
+
+### Lessons
+
+- Al buscar dónde se quedan archivos huérfanos, el borrado explícito es solo uno de los casos.
+  Las **sustituciones** (cambiar un logo, cambiar una foto principal) generan huérfanos igual y
+  son más fáciles de pasar por alto porque el usuario no ha pedido borrar nada.
+- Validar una ruta solo con `realpath()` deja un hueco: `realpath()` de un archivo inexistente
+  devuelve `false`, así que hay que comprobar también la ruta declarada para poder rechazar un
+  valor manipulado que no corresponda a ningún archivo.
+- El orden importa: borrar archivos dentro de la transacción y revertirla después deja la base
+  de datos apuntando a imágenes que ya no existen. Primero se confirma, después se borra.
+
+---
+
+## 2026-09-11 — Executor: Pasos D e I (servicio compartido y aviso de envío grande)
+
+### Current Status / Progress Tracking
+
+**Paso D.** La lógica de galería sale de `EntityController` a
+`app/Services/Media/MediaGallery.php`, parametrizado por tipo de propietario. Los tipos de
+medio se derivan del propietario (`entity_photo` / `entity_featured_photo`,
+`facility_photo` / `facility_featured_photo`), así que el Paso E no tendrá que tocar el
+servicio: le bastará con `MediaGallery::forFacilities()`.
+
+`EntityController` baja de 995 a 880 líneas. Desaparecen `updateExistingMedia`,
+`storeGalleryUploads`, `normalizeMultipleUpload`, `mediaPathsFor` y `deleteMediaFiles`; queda
+`syncEntityMedia` como traductor entre el resultado del servicio y la auditoría.
+
+Decisiones:
+
+1. **El servicio recibe `$_POST` y `$_FILES` como argumentos**, no los lee por su cuenta. El
+   código existente los leía directamente y así era imposible probarlo sin una petición HTTP
+   real, que es justo lo que no se puede automatizar aquí. Pasándolos como parámetros, la
+   galería entera se prueba desde consola.
+2. **El servicio no registra auditoría.** Devuelve un `MediaGalleryResult` con lo ocurrido y
+   es el controlador, que es quien sabe qué usuaria hay en sesión, el que lo anota. Meter la
+   auditoría dentro habría obligado a arrastrar la sesión hasta el servicio.
+3. **Añadido `deleteAllFor()`**, que no existía. No se usa todavía: hoy el archivado de entidad
+   es lógico y no debe borrar nada. Queda disponible para cuando haya un borrado definitivo.
+
+**Paso I.** `AdminController::postExceededLimit()` detecta el envío que PHP ha descartado por
+superar `post_max_size`: petición POST, `CONTENT_LENGTH` mayor que cero y `$_POST` y `$_FILES`
+ambos vacíos. Se comprueban los dos, no solo `$_POST`, para no confundirlo con un formulario
+legítimo que solo lleve archivos.
+
+Enganchado en `store()` y `update()` de entidades, instalaciones y modalidades, **antes de la
+verificación CSRF**, que es lo que hoy se lleva el golpe y produce el mensaje equivocado. El
+aviso cita el límite real leído de la configuración y aclara que no se ha guardado nada.
+
+Las instalaciones se enganchan ya, aunque todavía no tengan subida de archivos, para que el
+Paso E no tenga que volver a pasar por aquí.
+
+### Verificación ejecutada
+
+Nuevo `tests/media_gallery.php`, registrado como `composer test:media-gallery`. Es de
+integración: trabaja contra `juegos_tenerife_test`, se niega a arrancar si el nombre de la base
+no contiene "test", usa identificadores de propietario 999901 y 999902 para no cruzarse con
+datos reales y limpia filas y archivos al terminar. **31 comprobaciones, todas correctas:**
+
+- Galería vacía, orden con la destacada primero y después por `sort_order`.
+- **Aislamiento entre entidades e instalaciones**, que es lo que había que demostrar del
+  refactor: cada galería ve solo lo suyo y los tipos de instalación usan su propio prefijo.
+- Edición de título, texto alternativo y orden.
+- Cambio de destacada, comprobando que solo queda una.
+- Borrado: fila, archivo y miniatura, sin huérfanos.
+- **No se puede borrar una foto que pertenece a otro propietario**, aunque se envíe su
+  identificador en el formulario.
+- Borrado completo sin tocar al vecino.
+- Paso I: los cinco escenarios de detección y el texto del aviso.
+
+Nota sobre la conexión en local: la base autentica por socket, así que el test fuerza
+`DB_HOST=localhost`; por TCP (`127.0.0.1`) pediría contraseña y fallaría. Es configuración de la
+máquina de desarrollo, no del proyecto.
+
+Suite completa (`media_resize`, `media_delete`, `media_gallery`, `env_check`) en verde. `php -l`
+sobre todo `app/` y `tests/` sin errores, `git diff --check` limpio, `composer audit --no-dev`
+sin vulnerabilidades. `public/uploads` queda solo con su `.htaccess` y la base de pruebas sin
+filas residuales.
+
+### Executor's Feedback or Assistance Requests
+
+Sin bloqueos. El Paso E queda preparado: el formulario de instalación necesita la sección de
+fotos y `FacilityController` llamar a `MediaGallery::forFacilities()`.
+
+Sigue pendiente de confirmar lo apuntado en el Paso C: qué hacer con las fotos ya subidas en
+producción, que no tienen miniatura. Plan previsto salvo indicación contraria: que la vista use
+la versión web cuando no encuentre miniatura.
+
+### Lessons
+
+- Un servicio que lee `$_POST` por su cuenta no se puede probar sin levantar una petición HTTP.
+  Recibir la entrada como argumento cuesta lo mismo de escribir y convierte algo no
+  automatizable en algo que se verifica en dos segundos desde consola.
+- Al extraer lógica compartida, la prueba que de verdad justifica el refactor no es que siga
+  funcionando lo de antes, sino que **los dos usos no se pisen**: que la galería de entidad no
+  vea ni pueda borrar las fotos de una instalación.
+
+---
+
+## 2026-09-11 — Executor: Paso E (galería de instalaciones, con interfaz rehecha)
+
+### Current Status / Progress Tracking
+
+Las instalaciones ya tienen galería, y la interfaz se ha rehecho para las dos: entidades e
+instalaciones comparten ahora el mismo componente.
+
+**`app/Views/admin/partials/media-gallery.php`** es el nuevo partial compartido, la pareja en
+vistas de lo que `MediaGallery` hizo en lógica. El formulario de entidad le inyecta su campo de
+logo mediante `$mediaExtraHtml`, para no partir la sección en dos ni duplicar la galería entera
+solo por un campo que no tienen las instalaciones.
+
+Qué cambia respecto a la galería anterior:
+
+1. **Zona de subida con arrastrar y soltar.** Los archivos arrastrados se **suman** a los ya
+   elegidos en lugar de reemplazarlos, que es lo que hace el control nativo y lo que sorprende
+   a quien selecciona fotos en dos tandas.
+2. **Lista previa de lo seleccionado**, con miniatura, nombre y peso de cada archivo, antes de
+   guardar.
+3. **Aviso preventivo de tamaño.** El formulario conoce `upload_max_filesize` y
+   `post_max_size` reales del servidor: marca en rojo los archivos que van a ser rechazados y
+   avisa cuando el conjunto se acerca al límite del formulario. Es el Paso I atacado por el
+   otro lado: en vez de explicar bien el error, se evita que ocurra.
+4. **Destacada como distintivo visible**, no un botón de radio suelto: la tarjeta se resalta y
+   la foto lleva una insignia. Añadida la opción **"Sin destacada"**, que antes no existía: con
+   botones de radio no había forma de quitar la destacada sin elegir otra.
+5. **Eliminar es reversible y se ve.** Marcar una foto la deja en gris con el aviso "Se
+   eliminará al guardar", y el botón pasa a "Conservar". Nada se borra hasta guardar, y ahora
+   eso se lee en la propia tarjeta.
+6. **Reordenar con flechas**, que renumeran todas las fotos de diez en diez y desactivan la
+   flecha que no lleva a ninguna parte. El campo numérico sigue ahí para quien prefiera
+   escribir el orden.
+7. **Miniaturas en la rejilla** en vez de la imagen completa, con respaldo a la versión web
+   mediante `MediaUploadService::displayThumbnail()`. Esto resuelve además lo que quedaba
+   pendiente del Paso C: las fotos subidas antes del redimensionado no tienen miniatura y
+   sin el respaldo se verían rotas.
+
+**Todo funciona sin JavaScript.** Subir, ordenar, destacar y eliminar son controles normales;
+el guion solo añade comodidad encima. Nada de JavaScript en línea y todo el CSS en
+`styles.css`, según las reglas del proyecto.
+
+`FacilityController` pasa a usar `MediaGallery::forFacilities()` en alta y en edición, con la
+misma auditoría que entidades pero bajo `owner_type = 'facility'`.
+
+### Verificación ejecutada
+
+Revisión visual con el servidor local y una página de prueba desechable, ya eliminada, contra
+fotos reales de `Fotos-instalaciones-tenerife/` procesadas con el servicio del Paso B.
+Comprobado a 1200 px y a 375 px.
+
+Interacciones verificadas en el navegador:
+
+- Reordenar: al mover la primera foto hacia abajo, el orden queda 10/20/30/40 y las flechas de
+  los extremos se desactivan solas.
+- Eliminar: la tarjeta pasa a gris con la insignia roja y el botón cambia a "Conservar".
+- Selección de archivos: con una foto de 300 KB y otra de 9 MB, la lista muestra ambas, marca
+  la segunda como "demasiado grande" y avisa de que será rechazada.
+- El logo se inyecta dentro de la sección de fotos y se maqueta como el resto de campos.
+
+Tres defectos encontrados y corregidos durante la revisión:
+
+1. **El atributo `hidden` no funcionaba.** Cualquier regla propia de `display` le gana por
+   especificidad, así que los avisos y las insignias que el guion oculta se veían igualmente.
+   Faltaba la regla `[hidden] { display: none !important; }`, que no existía en la hoja. Era un
+   agujero general del proyecto, no solo de la galería.
+2. **"Eliminar" y "Conservar" se veían a la vez**, por el mismo motivo de especificidad:
+   `.media-remove span` ganaba a `.media-remove-undo`.
+3. **El texto de apoyo de la zona de subida salía en negrita**, porque toda la zona es un
+   `label` y hereda el peso global de las etiquetas, aplastando la jerarquía de los tres
+   niveles de texto.
+
+Suite completa (`media_resize`, `media_delete`, `media_gallery`, `env_check`) en verde. `php -l`
+sobre `app/` y `tests/`, `node --check` sobre los dos guiones, `git diff --check` limpio y
+`composer audit --no-dev` sin vulnerabilidades. `public/uploads` queda solo con su `.htaccess`.
+
+### Executor's Feedback or Assistance Requests
+
+Un descubrimiento durante el paso: **el formulario de instalación no tenía
+`enctype="multipart/form-data"`**. Sin ese atributo el navegador no envía los archivos, solo
+sus nombres, así que la galería habría fallado en silencio. Ya está añadido.
+
+Queda por decidir, y ahora es el momento porque afecta al Paso F: en la ficha pública de una
+entidad, **¿cómo se separan sus fotos propias de las de sus instalaciones?** Plan previsto: dos
+bloques, "Galería" y "Fotos de las instalaciones", indicando de qué instalación procede cada
+foto para que no parezca que el terrero es propiedad del club.
+
+### Lessons
+
+- Una regla propia de `display` gana al atributo `hidden`. Sin `[hidden] { display: none
+  !important; }` en la hoja, ocultar algo desde JavaScript con `el.hidden = true` no hace nada
+  y el fallo solo se ve mirando la página, no leyendo el código.
+- Un formulario sin `enctype="multipart/form-data"` acepta el campo de archivo sin protestar y
+  envía solo el nombre. No hay error: simplemente no llega nada. Conviene comprobarlo al añadir
+  la primera subida a un formulario que antes no tenía ninguna.
+- Al arrastrar archivos sobre un campo de subida, reemplazar la selección anterior es el
+  comportamiento nativo y es el que sorprende. Sumar los nuevos a los ya elegidos cuesta unas
+  líneas con `DataTransfer` y es lo que la gente espera.
+
+---
+
+## 2026-09-11 — Executor: Paso F (fotos de instalaciones en la ficha pública)
+
+### Current Status / Progress Tracking
+
+La ficha pública de una entidad muestra ahora dos bloques separados, según lo acordado:
+
+- **Galería**: fotos propias de la entidad.
+- **Fotos de las instalaciones**: un subgrupo por instalación, encabezado por su nombre.
+
+Cuando la vinculación entre entidad e instalación tiene etiqueta propia (`entity_facilities.label`),
+se usa esa en lugar del nombre genérico. Así una instalación cedida puede aparecer como
+"Pabellón municipal (cedido)" en la ficha del club que la usa, sin tocar el nombre de la
+instalación, que es compartido.
+
+`EntityRepository::facilityMediaFor()` **resuelve todas las instalaciones en una sola consulta**
+y agrupa en PHP. Una consulta por instalación habría multiplicado las consultas de la ficha por
+cada espacio de práctica. El agrupado recorre las instalaciones, no el resultado de la consulta,
+para conservar el orden en que aparecen en la ficha y descartar de paso las que no tienen fotos.
+
+### Verificación ejecutada
+
+Nuevo `tests/entity_facility_media.php`, registrado como `composer test:entity-facility-media`.
+Crea una entidad y tres instalaciones, una de ellas sin fotos. **13 comprobaciones, todas
+correctas:**
+
+- Los dos orígenes llegan separados y las fotos propias no incluyen las de instalación.
+- Solo aparecen las instalaciones que tienen fotos: una instalación vacía no genera un bloque
+  vacío en la ficha.
+- Se respeta el orden de vinculación y se usa la etiqueta de la vinculación cuando existe.
+- Dentro de cada instalación, la destacada va primero aunque tenga el `sort_order` más alto.
+- Una entidad sin instalaciones vinculadas no falla.
+
+Revisión visual en el navegador con datos y fotos reales, a 1280 px y a 375 px, borrados al
+terminar. Se corrigió un defecto que venía de antes y que solo se ve mirando la página:
+
+**La foto destacada ocupaba dos filas de la rejilla pero conservaba su proporción 4/3**, así que
+su pie de foto quedaba descolgado al final de la segunda fila con un hueco vacío en medio. Se
+corrige haciendo que la imagen destacada rellene las dos filas. Además, **la destacada solo pasa
+a doble altura cuando hay tres fotos o más**: con una o dos, el hueco a su lado quedaba vacío.
+Afectaba también a la galería de entidad que ya existía.
+
+Suite completa (cinco pruebas) en verde, `php -l` limpio, `git diff --check` limpio,
+`composer validate` correcto. La base de pruebas y `public/uploads` quedan sin restos.
+
+### Executor's Feedback or Assistance Requests
+
+Sin bloqueos. Queda el **Paso G**, que es donde toca la optimización que hoy falta: la ficha
+sirve las versiones web de 1600 px incluso en móvil, donde se muestran a 375 px. El Paso G las
+cambiará por miniaturas con respaldo, añadirá `loading="lazy"` y el lightbox para ver la foto
+completa.
+
+Aviso sobre los datos de prueba, por si se repite: al insertar por consola con el cliente
+`mysql` hay que pasar `--default-character-set=utf8mb4`. Sin eso, los acentos se guardan
+doblemente codificados y parece un fallo de la aplicación cuando es del cliente.
+
+### Lessons
+
+- Un `grid-row: span 2` sobre una figura cuya imagen tiene `aspect-ratio` fijo no estira la
+  imagen: estira la celda y deja el pie de foto descolgado con un hueco en medio. Si la celda
+  ocupa dos filas, la imagen necesita `height: 100%` y soltar la proporción.
+- Un diseño destacado a doble altura necesita un mínimo de elementos para que la columna de al
+  lado no quede a medias. Conviene condicionarlo al número real de fotos, no aplicarlo siempre
+  al primer elemento.
+
+---
+
+## 2026-09-11 — Executor: Paso G (visor de fotos y carga diferida)
+
+### Current Status / Progress Tracking
+
+**Peso de la ficha.** La rejilla pasa a usar las miniaturas en lugar de las versiones web.
+Medido con las siete fotos de prueba: **1417 KB → 189 KB, un 87 % menos**, y eso antes de
+contar la carga diferida, que evita descargar siquiera las que no se ven. Solo la primera foto
+de la página se carga de inmediato; el resto llevan `loading="lazy"` y `decoding="async"`.
+
+**Visor.** Cada foto es ahora un enlace a la imagen completa, y el visor se abre encima. Se usa
+**`<dialog>` nativo** en lugar de montar una capa a mano: trae de serie el cierre con Esc, el
+foco atrapado dentro y el resto de la página inerte, que a mano sale caro y se rompe fácil.
+
+- Se navega **solo dentro de la galería pulsada**: saltar de las fotos del club a las de una
+  instalación sin avisar desorienta.
+- Las flechas dan la vuelta por los extremos.
+- Con una sola foto las flechas se ocultan pero conservan su hueco, para que la imagen no
+  salte de sitio al abrir una galería u otra.
+- Contador "2 de 5" solo cuando hay más de una.
+- Al cerrar, **el foco vuelve a la miniatura de la que se salió**, y se libera el `src` de la
+  imagen ampliada.
+
+**Sin JavaScript sigue funcionando**: el enlace abre la foto completa. Lo mismo si el navegador
+no admite `<dialog>`, porque el guion se retira solo si no encuentra `showModal`.
+
+La vista se ha refactorizado a un único ayudante `$renderGallery`, que pintan igual la galería
+de la entidad y la de cada instalación. Antes eran dos bloques de marcado gemelos.
+
+### Verificación ejecutada
+
+Revisión en el navegador con datos y fotos reales, a 1280 px y a 375 px, borrados al terminar:
+
+- La rejilla pide las miniaturas (`-thumb.jpg`) y el enlace apunta a la versión completa.
+- `loading`: `eager` solo en la primera foto de la página, `lazy` en las otras seis.
+- Abrir con clic: se muestra la foto correcta con su pie y el contador "3 de 3".
+- Flechas de teclado: derecha en la última vuelve a la primera, izquierda en la primera va a
+  la última.
+- Esc cierra, el foco vuelve a la miniatura y se libera la imagen.
+- Pulsar fuera cierra, con el mismo retorno de foco.
+- Galería de una sola foto: contador vacío y flechas ocultas.
+- En móvil, las flechas bajan a una fila propia bajo la foto.
+
+Dos correcciones durante la revisión:
+
+1. **Pulsar fuera no cerraba, y no era un fallo del código sino del diseño.** El diálogo medía
+   lo mismo que el panel, así que el margen "fuera" eran unos 40 px a cada lado en escritorio
+   y **ninguno en móvil**, donde ocupaba todo el ancho. Se rehízo para que el diálogo ocupe
+   toda la pantalla y sea transparente, con el panel oscuro dentro: ahora cualquier punto
+   alrededor de la foto cierra, y la comprobación en el guion se reduce a "¿el destino del clic
+   es el propio diálogo?".
+2. **Esc se hace explícito** en lugar de confiar en el comportamiento nativo del navegador, para
+   que el visor se cierre igual en todos.
+
+Suite completa (cinco pruebas) en verde, `php -l` limpio sobre `app/` y `tests/`, `node --check`
+sobre los dos guiones, `git diff --check` limpio y `composer audit --no-dev` sin
+vulnerabilidades. Base de pruebas y `public/uploads` sin restos.
+
+### Executor's Feedback or Assistance Requests
+
+Con esto quedan cerrados todos los pasos de desarrollo. **Solo falta el Paso H**: la prueba
+manual en Plesk con una subida real y el documento de uso para las trabajadoras.
+
+Recordatorio de lo que hay que comprobar en Plesk, porque no se puede verificar desde aquí:
+
+- Que los límites de PHP que se cambiaron están realmente aplicados en el pool de FPM.
+- Que `public/uploads` tiene permiso de escritura con el usuario web.
+- Una subida real de varias fotos a una instalación y a una entidad.
+- Que `max_file_uploads` no corta la subida múltiple.
+
+### Lessons
+
+- Para "cerrar al pulsar fuera", el diálogo debe ocupar toda la pantalla y ser transparente,
+  con el panel visible dentro. Si el diálogo mide lo mismo que el panel, el área "fuera" es el
+  margen que sobra, que en móvil no existe: el gesto más natural para cerrar deja de funcionar
+  justo donde más se usa.
+- `<dialog>` resuelve gratis el foco atrapado, el fondo inerte y el orden de apilado, que es la
+  parte que más cuesta hacer bien a mano en un visor de imágenes.
+- Al capturar pantalla de forma automática, la capa `::backdrop` puede no aparecer aunque esté
+  bien aplicada. Antes de "arreglar" lo que no está roto, conviene comprobar el estilo
+  calculado: se confirmó con `getComputedStyle(dialog, '::backdrop')` y con la vista en móvil.
+
+---
+
+## 2026-09-11 — Executor: documentación de uso (parte del Paso H)
+
+Añadido `docs/guia-fotos.md`: guía de una página para las trabajadoras, deliberadamente corta.
+
+Lo primero que resuelve es la única decisión que tienen que tomar y que no es evidente: **si la
+foto es del espacio va en la instalación, y si es de la gente va en la entidad**. El resto
+(cómo subir, destacada, orden, título, texto alternativo, eliminar) cabe en media página.
+
+Incluye una tabla de mensajes de error con qué hacer en cada caso, incluido el de envío
+demasiado grande, dejando claro que **no se pierde nada** cuando aparece.
+
+El Paso H queda a falta de la prueba manual en Plesk, que depende del usuario.

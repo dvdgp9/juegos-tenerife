@@ -11,6 +11,7 @@ use JuegosTenerife\Core\View;
 use JuegosTenerife\Models\EntityTypeRepository;
 use JuegosTenerife\Models\ModalityRepository;
 use JuegosTenerife\Models\MunicipalityRepository;
+use JuegosTenerife\Services\Media\MediaGallery;
 use JuegosTenerife\Services\MediaUploadService;
 use JuegosTenerife\Services\Support\Slugger;
 use PDO;
@@ -59,6 +60,12 @@ final class EntityController extends AdminController
         $redirect = $this->requireAdmin();
         if ($redirect !== null) {
             return $redirect;
+        }
+
+        if ($this->postExceededLimit()) {
+            $this->flash('error', $this->uploadLimitMessage());
+
+            return Response::redirect('/admin/entities/new');
         }
 
         if (!Csrf::verify($_POST['_csrf'] ?? null)) {
@@ -110,6 +117,12 @@ final class EntityController extends AdminController
         $redirect = $this->requireAdmin();
         if ($redirect !== null) {
             return $redirect;
+        }
+
+        if ($this->postExceededLimit()) {
+            $this->flash('error', $this->uploadLimitMessage());
+
+            return Response::redirect('/admin/entities/' . (int) $id . '/edit');
         }
 
         $entityId = (int) $id;
@@ -705,12 +718,17 @@ final class EntityController extends AdminController
 
     private function syncEntityMedia(int $entityId): void
     {
-        $deleted = $this->updateExistingMedia($entityId);
+        $result = $this->gallery()->sync($entityId, $_POST, $_FILES);
         $logoPath = $this->storeLogoUpload($entityId);
-        $uploaded = $this->storeGalleryUploads($entityId);
 
-        if ($deleted > 0) {
-            $this->audit('media.deleted', 'entity', $entityId, ['files' => $deleted]);
+        if ($result->deleted > 0) {
+            $this->audit('media.deleted', 'entity', $entityId, ['files' => $result->deleted]);
+        }
+
+        foreach ($result->orphanedPaths as $path) {
+            // El archivo sigue en el disco aunque su ficha ya no exista. No se interrumpe el
+            // guardado por esto, pero debe quedar constancia para poder limpiarlo.
+            $this->audit('media.file_orphaned', 'entity', $entityId, ['file_path' => $path]);
         }
 
         if ($logoPath !== null) {
@@ -720,12 +738,17 @@ final class EntityController extends AdminController
             ]);
         }
 
-        if ($uploaded > 0) {
+        if ($result->uploaded > 0) {
             $this->audit('media.uploaded', 'entity', $entityId, [
                 'kind' => 'gallery',
-                'files' => $uploaded,
+                'files' => $result->uploaded,
             ]);
         }
+    }
+
+    private function gallery(): MediaGallery
+    {
+        return MediaGallery::forEntities();
     }
 
     /**
@@ -733,76 +756,7 @@ final class EntityController extends AdminController
      */
     private function mediaFilesForEntity(int $entityId): array
     {
-        $statement = Database::connection()->prepare(
-            'SELECT id, media_type, original_name, file_path, mime_type, file_size, alt_text, caption, sort_order
-             FROM media_files
-             WHERE owner_type = :owner_type
-               AND owner_id = :owner_id
-             ORDER BY media_type = \'entity_featured_photo\' DESC, sort_order ASC, id ASC'
-        );
-        $statement->execute([
-            'owner_type' => 'entity',
-            'owner_id' => $entityId,
-        ]);
-
-        return $statement->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    /**
-     * @return int Número de fotos eliminadas.
-     */
-    private function updateExistingMedia(int $entityId): int
-    {
-        $mediaInput = is_array($_POST['media'] ?? null) ? $_POST['media'] : [];
-        $deleteIds = array_map('intval', (array) ($_POST['delete_media_ids'] ?? []));
-        $featuredId = (int) ($_POST['featured_media_id'] ?? 0);
-
-        $pdo = Database::connection();
-        $pdo->beginTransaction();
-
-        try {
-            foreach ($deleteIds as $deleteId) {
-                $statement = $pdo->prepare('DELETE FROM media_files WHERE id = :id AND owner_type = \'entity\' AND owner_id = :owner_id');
-                $statement->execute(['id' => $deleteId, 'owner_id' => $entityId]);
-            }
-
-            if ($mediaInput !== []) {
-                $statement = $pdo->prepare(
-                    'UPDATE media_files
-                     SET alt_text = :alt_text,
-                         caption = :caption,
-                         sort_order = :sort_order
-                     WHERE id = :id
-                       AND owner_type = \'entity\'
-                       AND owner_id = :owner_id'
-                );
-                foreach ($mediaInput as $id => $data) {
-                    if (!is_array($data)) {
-                        continue;
-                    }
-                    $statement->execute([
-                        'alt_text' => $this->nullable($data['alt_text'] ?? null),
-                        'caption' => $this->nullable($data['caption'] ?? null),
-                        'sort_order' => $this->intOrNull($data['sort_order'] ?? null) ?? 100,
-                        'id' => (int) $id,
-                        'owner_id' => $entityId,
-                    ]);
-                }
-            }
-
-            $pdo->prepare('UPDATE media_files SET media_type = \'entity_photo\' WHERE owner_type = \'entity\' AND owner_id = :owner_id AND media_type = \'entity_featured_photo\'')->execute(['owner_id' => $entityId]);
-            if ($featuredId > 0 && !in_array($featuredId, $deleteIds, true)) {
-                $statement = $pdo->prepare('UPDATE media_files SET media_type = \'entity_featured_photo\' WHERE id = :id AND owner_type = \'entity\' AND owner_id = :owner_id');
-                $statement->execute(['id' => $featuredId, 'owner_id' => $entityId]);
-            }
-
-            $pdo->commit();
-        } catch (\Throwable $throwable) {
-            $pdo->rollBack();
-            throw new RuntimeException('No se pudieron guardar las fotos existentes: ' . $throwable->getMessage(), 0, $throwable);
-        }
-
-        return count($deleteIds);
+        return $this->gallery()->photosFor($entityId);
     }
 
     /**
@@ -814,82 +768,25 @@ final class EntityController extends AdminController
             return null;
         }
 
-        $uploaded = (new MediaUploadService())->storeImage($_FILES['logo'], 'entities/' . $entityId);
+        $previousPath = (string) ($this->findEntity($entityId)['logo_path'] ?? '');
+
+        // El logo no lleva miniatura: ya es pequeño y nunca se muestra en una rejilla.
+        $uploaded = (new MediaUploadService())->storeImage($_FILES['logo'], 'entities/' . $entityId, false);
         $statement = Database::connection()->prepare('UPDATE entities SET logo_path = :logo_path WHERE id = :id');
         $statement->execute([
             'logo_path' => $uploaded['file_path'],
             'id' => $entityId,
         ]);
 
-        return (string) $uploaded['file_path'];
-    }
-
-    /**
-     * @return int Número de fotos de galería añadidas.
-     */
-    private function storeGalleryUploads(int $entityId): int
-    {
-        if (!isset($_FILES['gallery_images']) || !is_array($_FILES['gallery_images'])) {
-            return 0;
-        }
-
-        $files = $this->normalizeMultipleUpload($_FILES['gallery_images']);
-        if ($files === []) {
-            return 0;
-        }
-
-        $upload = new MediaUploadService();
-        $pdo = Database::connection();
-        $statement = $pdo->prepare(
-            'INSERT INTO media_files (owner_type, owner_id, media_type, original_name, file_path, mime_type, file_size, alt_text, caption, sort_order)
-             VALUES (:owner_type, :owner_id, :media_type, :original_name, :file_path, :mime_type, :file_size, :alt_text, :caption, :sort_order)'
-        );
-
-        $stored = 0;
-
-        foreach ($files as $file) {
-            if ((int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
-                continue;
+        // Sustituir el logo dejaba el anterior en el disco para siempre. Solo se borra si
+        // era un archivo subido: un logo que apunte a /assets pertenece al repositorio.
+        if ($previousPath !== '' && $previousPath !== $uploaded['file_path'] && str_starts_with($previousPath, '/uploads/')) {
+            if (!(new MediaUploadService())->deleteStoredImage($previousPath)) {
+                $this->audit('media.file_orphaned', 'entity', $entityId, ['file_path' => $previousPath]);
             }
-            $uploaded = $upload->storeImage($file, 'entities/' . $entityId);
-            $statement->execute([
-                'owner_type' => 'entity',
-                'owner_id' => $entityId,
-                'media_type' => 'entity_photo',
-                'original_name' => $uploaded['original_name'],
-                'file_path' => $uploaded['file_path'],
-                'mime_type' => $uploaded['mime_type'],
-                'file_size' => $uploaded['file_size'],
-                'alt_text' => null,
-                'caption' => null,
-                'sort_order' => 100,
-            ]);
-            $stored++;
         }
 
-        return $stored;
-    }
-
-    /**
-     * @param array<string, mixed> $files
-     * @return list<array<string, mixed>>
-     */
-    private function normalizeMultipleUpload(array $files): array
-    {
-        $names = (array) ($files['name'] ?? []);
-        $normalized = [];
-
-        foreach ($names as $index => $name) {
-            $normalized[] = [
-                'name' => $name,
-                'type' => $files['type'][$index] ?? null,
-                'tmp_name' => $files['tmp_name'][$index] ?? null,
-                'error' => $files['error'][$index] ?? UPLOAD_ERR_NO_FILE,
-                'size' => $files['size'][$index] ?? 0,
-            ];
-        }
-
-        return $normalized;
+        return (string) $uploaded['file_path'];
     }
 
     /**

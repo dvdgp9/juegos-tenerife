@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "juegos-tenerife",
+      "runtimeExecutable": "php",
+      "runtimeArgs": ["-S", "127.0.0.1:8766", "-t", "public"],
+      "port": 8766
+    }
+  ]
+}

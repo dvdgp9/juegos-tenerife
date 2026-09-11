@@ -49,6 +49,12 @@ final class ModalityController extends AdminController
             return $redirect;
         }
 
+        if ($this->postExceededLimit()) {
+            $this->flash('error', $this->uploadLimitMessage());
+
+            return Response::redirect('/admin/modalities/new');
+        }
+
         $modality = $this->modalityFromPost();
         if (!Csrf::verify($_POST['_csrf'] ?? null)) {
             return $this->renderForm($modality, ['La sesión ha caducado. Vuelve a intentarlo.'], 'Crear modalidad', '/admin/modalities');
@@ -102,6 +108,12 @@ final class ModalityController extends AdminController
         $redirect = $this->requireAdmin();
         if ($redirect !== null) {
             return $redirect;
+        }
+
+        if ($this->postExceededLimit()) {
+            $this->flash('error', $this->uploadLimitMessage());
+
+            return Response::redirect('/admin/modalities/' . (int) $id . '/edit');
         }
 
         $modalityId = (int) $id;
@@ -334,6 +346,7 @@ final class ModalityController extends AdminController
         }
 
         $uploaded = (new MediaUploadService())->storeImage($_FILES['main_image'], 'modalities/' . $modalityId);
+        $previousPath = $this->currentMainImagePath($pdo, $modalityId);
         $pdo->beginTransaction();
         try {
             $pdo->prepare('DELETE FROM media_files WHERE owner_type = \'modality\' AND owner_id = :owner_id AND media_type = \'modality_main_image\'')->execute(['owner_id' => $modalityId]);
@@ -359,7 +372,38 @@ final class ModalityController extends AdminController
             throw new RuntimeException('No se pudo guardar la foto principal: ' . $throwable->getMessage(), 0, $throwable);
         }
 
+        // Sustituir la foto principal dejaba la anterior en el disco para siempre.
+        if ($previousPath !== null && $previousPath !== $uploaded['file_path']) {
+            if (!(new MediaUploadService())->deleteStoredImage($previousPath)) {
+                $this->audit('media.file_orphaned', 'modality', $modalityId, ['file_path' => $previousPath]);
+            }
+        }
+
         return (string) $uploaded['file_path'];
+    }
+
+    /**
+     * Ruta de la foto principal que hay ahora mismo, para poder borrarla al sustituirla.
+     * Devuelve null si no hay ninguna o si no es un archivo subido.
+     */
+    private function currentMainImagePath(PDO $pdo, int $modalityId): ?string
+    {
+        $statement = $pdo->prepare(
+            'SELECT file_path
+             FROM media_files
+             WHERE owner_type = \'modality\'
+               AND owner_id = :owner_id
+               AND media_type = \'modality_main_image\'
+             LIMIT 1'
+        );
+        $statement->execute(['owner_id' => $modalityId]);
+        $path = $statement->fetchColumn();
+
+        if (!is_string($path) || !str_starts_with($path, '/uploads/')) {
+            return null;
+        }
+
+        return $path;
     }
 
     private function slugExists(string $slug, ?int $modalityId): bool

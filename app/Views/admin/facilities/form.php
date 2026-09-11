@@ -39,13 +39,14 @@ require dirname(__DIR__) . '/partials/layout-start.php';
     </div>
 <?php endif; ?>
 
-<form class="admin-entity-form" action="<?= $h($action) ?>" method="post">
+<form class="admin-entity-form" action="<?= $h($action) ?>" method="post" enctype="multipart/form-data">
     <input type="hidden" name="_csrf" value="<?= $h($csrf ?? '') ?>">
 
     <aside class="admin-form-rail" aria-label="Secciones de la instalación">
         <a href="#datos">Datos</a>
         <a href="#mapa">Mapa</a>
         <a href="#entidades">Entidades</a>
+        <a href="#fotos">Fotos</a>
         <a href="#notas">Notas</a>
     </aside>
 
@@ -153,10 +154,19 @@ require dirname(__DIR__) . '/partials/layout-start.php';
             <?php endif; ?>
         </section>
 
+        <?php
+        $mediaFiles = $mediaFiles ?? [];
+        $mediaFeaturedType = 'facility_featured_photo';
+        $mediaSectionNumber = '04';
+        $mediaSectionTitle = 'Fotos de la instalación';
+        $mediaSectionHint = 'Fotos del espacio: terrero, campo, sede. Se muestran en las fichas de todas las entidades que usan esta instalación, así que basta con subirlas una vez.';
+        require dirname(__DIR__) . '/partials/media-gallery.php';
+        ?>
+
         <section id="notas" class="admin-form-section">
             <div class="admin-form-section-head">
                 <div>
-                    <p class="eyebrow">04</p>
+                    <p class="eyebrow">05</p>
                     <h2>Notas internas</h2>
                 </div>
             </div>
