@@ -14,6 +14,59 @@ final class ModalityContent
         return self::items()[$slug] ?? null;
     }
 
+    /** Valores que se muestran en el editor, incluyendo el contenido publicado originalmente. */
+    public static function editable(array $modality): array
+    {
+        $original = self::find((string) ($modality['slug'] ?? ''));
+        $sections = $original['sections'] ?? [];
+        foreach ($sections as &$section) {
+            $section['items'] = array_map(self::editableItem(...), $section['items'] ?? []);
+        }
+        unset($section);
+
+        $modality['page_lead'] = $modality['page_lead'] ?? ($original['lead'] ?? '');
+        $modality['page_sections'] = $modality['page_sections'] ?? json_encode($sections, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+
+        return $modality;
+    }
+
+    /** Combina los datos del panel con la ficha original, sin confundirlos con las descripciones del censo. */
+    public static function published(array $modality): array
+    {
+        $original = self::find((string) $modality['slug']) ?? [
+            'image' => '', 'image_alt' => '', 'lead' => '', 'sections' => [],
+        ];
+        $original['name'] = $modality['name'];
+        $original['lead'] = $modality['page_lead'] ?? $original['lead'];
+        if (isset($modality['page_sections'])) {
+            $sections = json_decode((string) $modality['page_sections'], true);
+            if (is_array($sections)) {
+                $original['sections'] = $sections;
+            }
+        }
+        if (!empty($modality['main_image_path'])) {
+            $original['image'] = $modality['main_image_path'];
+            $original['image_alt'] = $modality['main_image_alt'] ?: ($original['image_alt'] ?: $modality['name']);
+        }
+
+        return $original;
+    }
+
+    /** Conserva los énfasis originales usando una notación sencilla, sin admitir HTML del editor. */
+    public static function editableItem(string $item): string
+    {
+        return strip_tags(str_replace(['<strong>', '</strong>'], '**', $item));
+    }
+
+    public static function renderItem(string $item): string
+    {
+        $escaped = htmlspecialchars($item, ENT_QUOTES, 'UTF-8');
+        // Solo el contenido original tiene estas etiquetas; cualquier otra etiqueta queda escapada.
+        $escaped = str_replace(['&lt;strong&gt;', '&lt;/strong&gt;'], '**', $escaped);
+
+        return (string) preg_replace('/\*\*(.+?)\*\*/u', '<strong>$1</strong>', $escaped);
+    }
+
     /**
      * @return array<string, array<string, mixed>>
      */

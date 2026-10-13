@@ -14,20 +14,15 @@ final class ModalityController
 {
     public function show(string $slug): Response
     {
-        $modality = ModalityContent::find($slug);
+        try {
+            $row = $this->findModality($slug);
+            $modality = $row === null ? ModalityContent::find($slug) : ModalityContent::published($row);
+        } catch (\Throwable) {
+            $modality = ModalityContent::find($slug);
+        }
 
         if ($modality === null) {
             return new Response('Modalidad no encontrada', 404);
-        }
-
-        try {
-            $adminMedia = $this->adminMediaFor($slug);
-        } catch (\Throwable) {
-            $adminMedia = null;
-        }
-        if ($adminMedia !== null && !empty($adminMedia['image'])) {
-            $modality['image'] = $adminMedia['image'];
-            $modality['image_alt'] = $adminMedia['image_alt'] ?: ($modality['image_alt'] ?? $modality['name']);
         }
 
         return View::render('modality-show', [
@@ -38,14 +33,14 @@ final class ModalityController
     }
 
     /**
-     * @return array{image: string, image_alt: string}|null
+     * @return array<string, mixed>|null
      */
-    private function adminMediaFor(string $slug): ?array
+    private function findModality(string $slug): ?array
     {
         $statement = Database::connection()->prepare(
-            'SELECT mf.file_path, mf.alt_text
+            'SELECT mo.*, mf.file_path AS main_image_path, mf.alt_text AS main_image_alt
              FROM modalities mo
-             INNER JOIN media_files mf ON mf.owner_type = :owner_type
+             LEFT JOIN media_files mf ON mf.owner_type = :owner_type
                 AND mf.owner_id = mo.id
                 AND mf.media_type = :media_type
              WHERE mo.slug = :slug
@@ -62,9 +57,6 @@ final class ModalityController
             return null;
         }
 
-        return [
-            'image' => (string) $row['file_path'],
-            'image_alt' => (string) ($row['alt_text'] ?? ''),
-        ];
+        return $row;
     }
 }

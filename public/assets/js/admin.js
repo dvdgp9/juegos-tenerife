@@ -330,3 +330,32 @@
         mover.focus();
     });
 })();
+
+
+// Editor de los apartados de la ficha pública de modalidad.
+(() => {
+    const sections = document.querySelector('[data-page-sections]');
+    const template = document.getElementById('page-section-template');
+    const add = document.querySelector('[data-add-page-section]');
+    if (!sections || !template || !add) return;
+
+    let nextIndex = sections.querySelectorAll('[data-page-section]').length;
+    add.addEventListener('click', () => {
+        const fragment = template.content.cloneNode(true);
+        fragment.querySelectorAll('[data-section-field]').forEach((field) => {
+            field.name = `page_sections[${nextIndex}][${field.dataset.sectionField}]`;
+            field.id = `page_section_${nextIndex}_${field.dataset.sectionField}`;
+        });
+        fragment.querySelectorAll('label[for]').forEach((label) => {
+            label.htmlFor = label.htmlFor.replace('__INDEX__', String(nextIndex));
+        });
+        nextIndex += 1;
+        const title = fragment.querySelector('input');
+        sections.append(fragment);
+        title?.focus();
+    });
+    sections.addEventListener('click', (event) => {
+        const remove = event.target.closest('[data-remove-page-section]');
+        if (remove) remove.closest('[data-page-section]').remove();
+    });
+})();

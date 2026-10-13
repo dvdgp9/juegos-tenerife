@@ -19,6 +19,7 @@
     "check:env": "php tests/env_check.php",
     "test:media-delete": "php tests/media_delete.php",
     "test:media-gallery": "php tests/media_gallery.php",
-    "test:entity-facility-media": "php tests/entity_facility_media.php"
+    "test:entity-facility-media": "php tests/entity_facility_media.php",
+    "test:modality-editor": "php tests/modality_editor.php"
   }
 }

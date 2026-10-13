@@ -30,7 +30,9 @@ $sections = $modality['sections'] ?? [];
 
     <main class="modality-page">
         <section class="modality-hero">
+            <?php if (!empty($modality['image'])): ?>
             <img src="<?= htmlspecialchars((string) $modality['image'], ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars((string) $modality['image_alt'], ENT_QUOTES, 'UTF-8') ?>">
+            <?php endif; ?>
             <div class="modality-hero-overlay"></div>
             <div class="modality-hero-content">
                 <a class="modality-back-link" href="/#modalidades">Modalidades</a>
@@ -41,7 +43,7 @@ $sections = $modality['sections'] ?? [];
 
         <div class="modality-content-layout">
             <aside class="modality-summary">
-                <p><?= htmlspecialchars((string) $modality['lead'], ENT_QUOTES, 'UTF-8') ?></p>
+                <p><?= nl2br(htmlspecialchars((string) $modality['lead'], ENT_QUOTES, 'UTF-8')) ?></p>
                 <a class="button primary" href="/busqueda?modalidad=<?= rawurlencode($slug) ?>">Ver entidades</a>
             </aside>
 
@@ -55,7 +57,7 @@ $sections = $modality['sections'] ?? [];
                         <?php if (!empty($section['items'])): ?>
                             <ul>
                                 <?php foreach ($section['items'] as $item): ?>
-                                    <li><?= $item ?></li>
+                                    <li><?= \JuegosTenerife\Content\ModalityContent::renderItem((string) $item) ?></li>
                                 <?php endforeach; ?>
                             </ul>
                         <?php endif; ?>

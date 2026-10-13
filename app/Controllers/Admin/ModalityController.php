@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace JuegosTenerife\Controllers\Admin;
 
+use JuegosTenerife\Content\ModalityContent;
 use JuegosTenerife\Core\Csrf;
 use JuegosTenerife\Core\Database;
 use JuegosTenerife\Core\Response;
@@ -66,8 +67,9 @@ final class ModalityController extends AdminController
         }
 
         try {
-            $id = $this->saveModality($modality, null);
-            $imagePath = $this->storeMainImageUpload($id);
+            $saved = $this->saveWithMedia($modality, null);
+            $id = $saved['id'];
+            $imagePath = $saved['image'];
         } catch (RuntimeException $exception) {
             return $this->renderForm($modality, [$exception->getMessage()], 'Crear modalidad', '/admin/modalities');
         }
@@ -81,6 +83,10 @@ final class ModalityController extends AdminController
                 'kind' => 'main_image',
                 'file_path' => $imagePath,
             ]);
+        }
+
+        if ($saved['icon'] !== null) {
+            $this->audit('media.uploaded', 'modality', $saved['id'], ['kind' => 'icon', 'file_path' => $saved['icon']]);
         }
 
         $this->flash('success', 'Modalidad creada correctamente.');
@@ -134,8 +140,8 @@ final class ModalityController extends AdminController
         }
 
         try {
-            $this->saveModality($modality, $modalityId);
-            $imagePath = $this->storeMainImageUpload($modalityId);
+            $saved = $this->saveWithMedia($modality, $modalityId);
+            $imagePath = $saved['image'];
         } catch (RuntimeException $exception) {
             return $this->renderForm($modality, [$exception->getMessage()], 'Editar modalidad', '/admin/modalities/' . $modalityId);
         }
@@ -149,6 +155,10 @@ final class ModalityController extends AdminController
                 'kind' => 'main_image',
                 'file_path' => $imagePath,
             ]);
+        }
+
+        if ($saved['icon'] !== null) {
+            $this->audit('media.uploaded', 'modality', $saved['id'], ['kind' => 'icon', 'file_path' => $saved['icon']]);
         }
 
         $this->flash('success', 'Modalidad guardada correctamente.');
@@ -168,7 +178,7 @@ final class ModalityController extends AdminController
             'user' => $this->user(),
             'csrf' => Csrf::token(),
             'flash' => $this->consumeFlash(),
-            'modality' => $modality,
+            'modality' => ModalityContent::editable($modality),
             'errors' => $errors,
             'action' => $action,
         ]);
@@ -227,6 +237,8 @@ final class ModalityController extends AdminController
             'short_description' => '',
             'full_description' => '',
             'extra_info' => '',
+            'page_lead' => null,
+            'page_sections' => null,
             'icon_path' => '',
             'is_featured' => 0,
             'sort_order' => 100,
@@ -242,13 +254,32 @@ final class ModalityController extends AdminController
     {
         $modality = $this->blankModality();
         foreach (array_keys($modality) as $field) {
-            if (in_array($field, ['id', 'main_image_path', 'main_image_alt'], true)) {
+            if (in_array($field, ['id', 'main_image_path', 'main_image_alt', 'page_sections', 'icon_path'], true)) {
                 continue;
             }
             $modality[$field] = $_POST[$field] ?? '';
         }
+        if (isset($_POST['page_content_present'])) {
+            $sections = [];
+            foreach ((array) ($_POST['page_sections'] ?? []) as $section) {
+                if (!is_array($section)) {
+                    continue;
+                }
+                $text = static fn(string $key): string => is_string($section[$key] ?? null) ? trim($section[$key]) : '';
+                $title = $text('title');
+                $paragraphs = preg_split('/\R\s*\R/u', $text('paragraphs'), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+                $items = preg_split('/\R/u', $text('items'), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+                if ($title !== '' || $paragraphs !== [] || $items !== []) {
+                    $sections[] = ['title' => $title, 'paragraphs' => array_map('trim', $paragraphs), 'items' => array_map('trim', $items)];
+                }
+            }
+            $modality['page_sections'] = json_encode($sections, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        } else {
+            unset($modality['page_lead'], $modality['page_sections']);
+        }
         $modality['slug'] = Slugger::slug((string) ($modality['slug'] ?: $modality['name']));
         $modality['is_featured'] = isset($_POST['is_featured']) ? 1 : 0;
+        unset($modality['icon_path']);
         $modality['main_image_alt'] = trim((string) ($_POST['main_image_alt'] ?? ''));
 
         return $modality;
@@ -272,6 +303,13 @@ final class ModalityController extends AdminController
             $errors[] = 'Ya existe una modalidad con ese slug.';
         }
 
+        foreach (json_decode((string) ($modality['page_sections'] ?? '[]'), true) ?? [] as $section) {
+            if ($section['title'] === '') {
+                $errors[] = 'Cada apartado de la ficha debe tener un título.';
+                break;
+            }
+        }
+
         return $errors;
     }
 
@@ -286,6 +324,8 @@ final class ModalityController extends AdminController
             'short_description' => $this->nullable($modality['short_description'] ?? null),
             'full_description' => $this->nullable($modality['full_description'] ?? null),
             'extra_info' => $this->nullable($modality['extra_info'] ?? null),
+            'page_lead' => $modality['page_lead'] ?? null,
+            'page_sections' => $modality['page_sections'] ?? null,
             'icon_path' => $this->nullable($modality['icon_path'] ?? null),
             'is_featured' => (int) ($modality['is_featured'] ?? 0) === 1 ? 1 : 0,
             'sort_order' => $this->intOrNull($modality['sort_order'] ?? null) ?? 100,
@@ -294,8 +334,8 @@ final class ModalityController extends AdminController
         $pdo = Database::connection();
         if ($modalityId === null) {
             $statement = $pdo->prepare(
-                'INSERT INTO modalities (name, slug, short_description, full_description, extra_info, icon_path, is_featured, sort_order)
-                 VALUES (:name, :slug, :short_description, :full_description, :extra_info, :icon_path, :is_featured, :sort_order)'
+                'INSERT INTO modalities (name, slug, short_description, full_description, extra_info, page_lead, page_sections, icon_path, is_featured, sort_order)
+                 VALUES (:name, :slug, :short_description, :full_description, :extra_info, :page_lead, :page_sections, :icon_path, :is_featured, :sort_order)'
             );
             $statement->execute($data);
 
@@ -310,6 +350,8 @@ final class ModalityController extends AdminController
                  short_description = :short_description,
                  full_description = :full_description,
                  extra_info = :extra_info,
+                 page_lead = :page_lead,
+                 page_sections = :page_sections,
                  icon_path = :icon_path,
                  is_featured = :is_featured,
                  sort_order = :sort_order
@@ -320,66 +362,86 @@ final class ModalityController extends AdminController
         return $modalityId;
     }
 
-    /**
-     * @return string|null Ruta de la nueva foto principal, o null si no se subió ninguna.
-     */
-    private function storeMainImageUpload(int $modalityId): ?string
+    /** Guarda los datos y ambas imágenes como una única operación. */
+    private function saveWithMedia(array $modality, ?int $modalityId): array
     {
         $pdo = Database::connection();
-
-        if (isset($_POST['main_image_alt'])) {
-            $statement = $pdo->prepare(
-                'UPDATE media_files
-                 SET alt_text = :alt_text
-                 WHERE owner_type = \'modality\'
-                   AND owner_id = :owner_id
-                   AND media_type = \'modality_main_image\''
-            );
-            $statement->execute([
-                'alt_text' => $this->nullable($_POST['main_image_alt'] ?? null),
-                'owner_id' => $modalityId,
-            ]);
-        }
-
-        if (!isset($_FILES['main_image']) || !is_array($_FILES['main_image']) || (int) ($_FILES['main_image']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
-            return null;
-        }
-
-        $uploaded = (new MediaUploadService())->storeImage($_FILES['main_image'], 'modalities/' . $modalityId);
-        $previousPath = $this->currentMainImagePath($pdo, $modalityId);
+        $uploads = new MediaUploadService();
+        $image = null;
+        $icon = null;
+        $previousImage = $modalityId === null ? null : $this->currentMainImagePath($pdo, $modalityId);
+        $previousIcon = (string) ($modality['icon_path'] ?? '');
         $pdo->beginTransaction();
         try {
-            $pdo->prepare('DELETE FROM media_files WHERE owner_type = \'modality\' AND owner_id = :owner_id AND media_type = \'modality_main_image\'')->execute(['owner_id' => $modalityId]);
-            $statement = $pdo->prepare(
-                'INSERT INTO media_files (owner_type, owner_id, media_type, original_name, file_path, mime_type, file_size, alt_text, caption, sort_order)
-                 VALUES (:owner_type, :owner_id, :media_type, :original_name, :file_path, :mime_type, :file_size, :alt_text, :caption, :sort_order)'
-            );
-            $statement->execute([
-                'owner_type' => 'modality',
-                'owner_id' => $modalityId,
-                'media_type' => 'modality_main_image',
-                'original_name' => $uploaded['original_name'],
-                'file_path' => $uploaded['file_path'],
-                'mime_type' => $uploaded['mime_type'],
-                'file_size' => $uploaded['file_size'],
-                'alt_text' => $this->nullable($_POST['main_image_alt'] ?? null),
-                'caption' => null,
-                'sort_order' => 10,
-            ]);
+            $id = $this->saveModality($modality, $modalityId);
+            foreach (['icon', 'main_image'] as $field) {
+                $file = $_FILES[$field] ?? null;
+                if (!is_array($file) || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+                    continue;
+                }
+                if ($field === 'icon') {
+                    $icon = $uploads->storeImage($file, 'modalities/' . $id . '/icons', false);
+                    $pdo->prepare('UPDATE modalities SET icon_path = :path WHERE id = :id')
+                        ->execute(['path' => $icon['file_path'], 'id' => $id]);
+                } else {
+                    $image = $uploads->storeImage($file, 'modalities/' . $id);
+                }
+            }
+            $this->saveMainImage($pdo, $id, $image);
             $pdo->commit();
-        } catch (\Throwable $throwable) {
-            $pdo->rollBack();
-            throw new RuntimeException('No se pudo guardar la foto principal: ' . $throwable->getMessage(), 0, $throwable);
+        } catch (\Throwable $exception) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            foreach ([$image, $icon] as $uploaded) {
+                if ($uploaded !== null) {
+                    $uploads->deleteStoredImage($uploaded['file_path']);
+                }
+            }
+            throw new RuntimeException('No se pudo guardar la modalidad: ' . $exception->getMessage(), 0, $exception);
         }
 
-        // Sustituir la foto principal dejaba la anterior en el disco para siempre.
-        if ($previousPath !== null && $previousPath !== $uploaded['file_path']) {
-            if (!(new MediaUploadService())->deleteStoredImage($previousPath)) {
-                $this->audit('media.file_orphaned', 'modality', $modalityId, ['file_path' => $previousPath]);
+        // Los iconos de assets se conservan; solo se retiran los subidos para esta modalidad.
+        $oldPaths = [];
+        if ($image !== null && $previousImage !== null) {
+            $oldPaths[] = $previousImage;
+        }
+        if ($icon !== null && str_starts_with($previousIcon, '/uploads/modalities/' . $id . '/icons/')) {
+            $oldPaths[] = $previousIcon;
+        }
+        foreach ($oldPaths as $path) {
+            if (!$uploads->deleteStoredImage($path)) {
+                $this->audit('media.file_orphaned', 'modality', $id, ['file_path' => $path]);
             }
         }
 
-        return (string) $uploaded['file_path'];
+        return ['id' => $id, 'image' => $image['file_path'] ?? null, 'icon' => $icon['file_path'] ?? null];
+    }
+
+    private function saveMainImage(PDO $pdo, int $modalityId, ?array $uploaded): void
+    {
+        if (isset($_POST['main_image_alt'])) {
+            $pdo->prepare(
+                "UPDATE media_files SET alt_text = :alt_text
+                 WHERE owner_type = 'modality' AND owner_id = :owner_id AND media_type = 'modality_main_image'"
+            )->execute(['alt_text' => $this->nullable($_POST['main_image_alt']), 'owner_id' => $modalityId]);
+        }
+        if ($uploaded === null) {
+            return;
+        }
+        $pdo->prepare("DELETE FROM media_files WHERE owner_type = 'modality' AND owner_id = :id AND media_type = 'modality_main_image'")
+            ->execute(['id' => $modalityId]);
+        $pdo->prepare(
+            "INSERT INTO media_files (owner_type, owner_id, media_type, original_name, file_path, mime_type, file_size, alt_text, sort_order)
+             VALUES ('modality', :owner_id, 'modality_main_image', :original_name, :file_path, :mime_type, :file_size, :alt_text, 10)"
+        )->execute([
+            'owner_id' => $modalityId,
+            'original_name' => $uploaded['original_name'],
+            'file_path' => $uploaded['file_path'],
+            'mime_type' => $uploaded['mime_type'],
+            'file_size' => $uploaded['file_size'],
+            'alt_text' => $this->nullable($_POST['main_image_alt'] ?? null),
+        ]);
     }
 
     /**
